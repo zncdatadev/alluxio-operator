@@ -10,4 +10,14 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: alluxio-operator
 repo: github.com/zncdata-labs/alluxio-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: zncdata.net
+  group: stack
+  kind: Alluxio
+  path: github.com/zncdata-labs/alluxio-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

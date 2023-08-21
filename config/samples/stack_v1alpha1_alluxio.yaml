@@ -1,0 +1,12 @@
+apiVersion: stack.zncdata.net/v1alpha1
+kind: Alluxio
+metadata:
+  labels:
+    app.kubernetes.io/name: alluxio
+    app.kubernetes.io/instance: alluxio-sample
+    app.kubernetes.io/part-of: alluxio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: alluxio-operator
+  name: alluxio-sample
+spec:
+  # TODO(user): Add fields here
