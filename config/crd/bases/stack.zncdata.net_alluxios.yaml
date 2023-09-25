@@ -1,0 +1,387 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: alluxios.stack.zncdata.net
+spec:
+  group: stack.zncdata.net
+  names:
+    kind: Alluxio
+    listKind: AlluxioList
+    plural: alluxios
+    singular: alluxio
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Alluxio is the Schema for the alluxios API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AlluxioSpec defines the desired state of Alluxio
+            properties:
+              image:
+                properties:
+                  pullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  repository:
+                    default: alluxio/alluxio
+                    type: string
+                  tag:
+                    default: latest
+                    type: string
+                required:
+                - pullPolicy
+                type: object
+              jobMaster:
+                properties:
+                  args:
+                    default: '["job-master"]'
+                    items:
+                      type: string
+                    type: array
+                  ports:
+                    properties:
+                      embedded:
+                        default: 20003
+                        format: int32
+                        type: integer
+                      rpc:
+                        default: 20001
+                        format: int32
+                        type: integer
+                      web:
+                        default: 20002
+                        format: int32
+                        type: integer
+                    type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  replicas:
+                    default: 1
+                    format: int32
+                    type: integer
+                  resources:
+                    properties:
+                      limits:
+                        properties:
+                          cpu:
+                            default: 4000m
+                            type: string
+                          memory:
+                            default: 4Gi
+                            type: string
+                        type: object
+                      requests:
+                        properties:
+                          cpu:
+                            default: 500m
+                            type: string
+                          memory:
+                            default: 500Mi
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              jobWorker:
+                properties:
+                  args:
+                    default: '["job-worker"]'
+                    items:
+                      type: string
+                    type: array
+                  ports:
+                    properties:
+                      data:
+                        default: 30002
+                        format: int32
+                        type: integer
+                      rpc:
+                        default: 30001
+                        format: int32
+                        type: integer
+                      web:
+                        default: 30003
+                        format: int32
+                        type: integer
+                    type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  resources:
+                    properties:
+                      limits:
+                        properties:
+                          cpu:
+                            default: 4000m
+                            type: string
+                          memory:
+                            default: 4Gi
+                            type: string
+                        type: object
+                      requests:
+                        properties:
+                          cpu:
+                            default: 500m
+                            type: string
+                          memory:
+                            default: 500Mi
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              master:
+                properties:
+                  args:
+                    default:
+                    - master-only
+                    - --no-format
+                    items:
+                      type: string
+                    type: array
+                  ports:
+                    properties:
+                      debugPort:
+                        default: 19999
+                        format: int32
+                        type: integer
+                      embedded:
+                        default: 19200
+                        format: int32
+                        type: integer
+                      rpcPort:
+                        default: 19998
+                        format: int32
+                        type: integer
+                    type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  replicas:
+                    default: 1
+                    format: int32
+                    type: integer
+                  resources:
+                    properties:
+                      limits:
+                        properties:
+                          cpu:
+                            default: 4000m
+                            type: string
+                          memory:
+                            default: 4Gi
+                            type: string
+                        type: object
+                      requests:
+                        properties:
+                          cpu:
+                            default: 500m
+                            type: string
+                          memory:
+                            default: 500Mi
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              properties:
+                additionalProperties:
+                  type: string
+                type: object
+              securityContext:
+                properties:
+                  fsGroup:
+                    default: 1000
+                    description: "A special supplemental group that applies to all
+                      containers in a pod. Some volume types allow the Kubelet to
+                      change the ownership of that volume to be owned by the pod:
+                      \n 1. The owning GID will be the FSGroup 2. The setgid bit is
+                      set (new files created in the volume will be owned by FSGroup)
+                      3. The permission bits are OR'd with rw-rw---- \n If unset,
+                      the Kubelet will not modify the ownership and permissions of
+                      any volume. Note that this field cannot be set when spec.os.name
+                      is windows."
+                    format: int64
+                    type: integer
+                  runAsGroup:
+                    default: 1000
+                    description: The GID to run the entrypoint of the container process.
+                      Uses runtime default if unset. May also be set in SecurityContext.  If
+                      set in both SecurityContext and PodSecurityContext, the value
+                      specified in SecurityContext takes precedence for that container.
+                      Note that this field cannot be set when spec.os.name is windows.
+                    format: int64
+                    type: integer
+                  runAsUser:
+                    default: 1000
+                    description: The UID to run the entrypoint of the container process.
+                      Defaults to user specified in image metadata if unspecified.
+                      May also be set in SecurityContext.  If set in both SecurityContext
+                      and PodSecurityContext, the value specified in SecurityContext
+                      takes precedence for that container. Note that this field cannot
+                      be set when spec.os.name is windows.
+                    format: int64
+                    type: integer
+                type: object
+              shortCircuit:
+                properties:
+                  enabled:
+                    default: true
+                    type: boolean
+                  path:
+                    default: /tmp/
+                    type: string
+                  policy:
+                    default: uuid
+                    type: integer
+                  size:
+                    default: 1Mi
+                    type: string
+                  volumeType:
+                    default: hostPath
+                    type: string
+                type: object
+              tieredStore:
+                items:
+                  properties:
+                    alias:
+                      type: string
+                    high:
+                      type: string
+                    level:
+                      format: int32
+                      type: integer
+                    low:
+                      type: string
+                    mediumType:
+                      type: string
+                    name:
+                      type: string
+                    path:
+                      type: string
+                    quota:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - alias
+                  - high
+                  - level
+                  - low
+                  - mediumType
+                  - name
+                  - path
+                  - quota
+                  - type
+                  type: object
+                type: array
+              worker:
+                properties:
+                  args:
+                    default:
+                    - worker
+                    - --no-format
+                    items:
+                      type: string
+                    type: array
+                  ports:
+                    properties:
+                      rpc:
+                        default: 29999
+                        format: int32
+                        type: integer
+                      web:
+                        default: 30000
+                        format: int32
+                        type: integer
+                    type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  replicas:
+                    default: 1
+                    format: int32
+                    type: integer
+                  resources:
+                    properties:
+                      limits:
+                        properties:
+                          cpu:
+                            default: 4000m
+                            type: string
+                          memory:
+                            default: 4Gi
+                            type: string
+                        type: object
+                      requests:
+                        properties:
+                          cpu:
+                            default: 500m
+                            type: string
+                          memory:
+                            default: 500Mi
+                            type: string
+                        type: object
+                    type: object
+                type: object
+            required:
+            - image
+            type: object
+          status:
+            description: AlluxioStatus defines the observed state of Alluxio
+            properties:
+              conditions:
+                items:
+                  description: Information about the condition of a component.
+                  properties:
+                    error:
+                      description: Condition error code for a component. For example,
+                        a health check error code.
+                      type: string
+                    message:
+                      description: Message about the condition for a component. For
+                        example, information about a health check.
+                      type: string
+                    status:
+                      description: 'Status of the condition for a component. Valid
+                        values for "Healthy": "True", "False", or "Unknown".'
+                      type: string
+                    type:
+                      description: 'Type of condition for a component. Valid value:
+                        "Healthy"'
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

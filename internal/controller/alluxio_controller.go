@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,9 +48,34 @@ type AlluxioReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *AlluxioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	instance := &stackv1alpha1.Alluxio{}
+	err := r.Get(ctx, types.NamespacedName{Name: "alluxio-master", Namespace: req.Namespace}, instance)
+	if client.IgnoreNotFound(err) != nil {
+		logger.Error(err, "unable to fetch Master StatefulSet")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileMasterStatefulSet(ctx, instance, r.Scheme); err != nil {
+		logger.Error(err, "unable to reconcile Master StatefulSet")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileMasterService(ctx, instance, r.Scheme); err != nil {
+		logger.Error(err, "unable to reconcile Master Service")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileWorkerDaemonSet(ctx, instance, r.Scheme); err != nil {
+		logger.Error(err, "unable to reconcile Worker StatefulSet")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileWorkerService(ctx, instance, r.Scheme); err != nil {
+		logger.Error(err, "unable to reconcile Worker Service")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
