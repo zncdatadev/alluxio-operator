@@ -1,0 +1,27 @@
+# permissions for end users to view alluxios.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: alluxio-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: alluxio-operator
+    app.kubernetes.io/part-of: alluxio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: alluxio-viewer-role
+rules:
+- apiGroups:
+  - stack.zncdata.net
+  resources:
+  - alluxios
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - stack.zncdata.net
+  resources:
+  - alluxios/status
+  verbs:
+  - get
