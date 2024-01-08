@@ -29,13 +29,13 @@ type AlluxioSpec struct {
 	Image           *ImageSpec           `json:"image"`
 	SecurityContext *SecurityContextSpec `json:"securityContext,omitempty"`
 	Properties      map[string]string    `json:"properties,omitempty"`
-	Master          *MasterSpec          `json:"master,omitempty"`
-	Worker          *WorkSpec            `json:"worker,omitempty"`
+	Master          map[string]RoleGroupSpec 
+	Worker          *WorkerSpec          `json:"worker,omitempty"`
 	JobMaster       *JobMasterSpec       `json:"jobMaster,omitempty"`
 	JobWorker       *JobWorkerSpec       `json:"jobWorker,omitempty"`
 
-	TieredStore  []*TieredStore `json:"tieredStore,omitempty"`
-	ShortCircuit *ShortCircuit  `json:"shortCircuit,omitempty"`
+	TieredStore  []*TieredStore    `json:"tieredStore,omitempty"`
+	ShortCircuit *ShortCircuitSpec `json:"shortCircuit,omitempty"`
 }
 
 func (alluxio *Alluxio) GetLabels() map[string]string {
@@ -43,6 +43,11 @@ func (alluxio *Alluxio) GetLabels() map[string]string {
 		"app":      alluxio.GetName(),
 		"provider": "zncdata",
 	}
+}
+
+type RoleGroupSpec struct {
+	Replicas  int32 `json:"replicas"`
+	
 }
 
 type MasterSpec struct {
@@ -141,11 +146,7 @@ type SecurityContextSpec struct {
 	FSGroup *int64 `json:"fsGroup,omitempty"`
 }
 
-type WorkSpec struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
-	Replicas int32 `json:"replicas"`
-
+type WorkerSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={"worker", "--no-format"}
 	Args []string `json:"args,omitempty"`
@@ -153,9 +154,9 @@ type WorkSpec struct {
 	// +kubebuilder:validation:Optional
 	Properties *map[string]string `json:"properties,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	Resources *WorkResourceSpec `json:"resources,omitempty"`
+	Resources *ResourceSpec `json:"resources,omitempty"`
 
+	// +kube:validation:Optional
 	Ports *WorkPortsSpec `json:"ports,omitempty"`
 }
 
@@ -168,7 +169,7 @@ type WorkPortsSpec struct {
 	Web int32 `json:"web,omitempty"`
 }
 
-type WorkResourceSpec struct {
+type ResourceSpec struct {
 	Limits   *WorkResourcesLimitSpec  `json:"limits,omitempty"`
 	Requests *WorkResourceRequestSpec `json:"requests,omitempty"`
 }
@@ -205,11 +206,7 @@ type WorkResourceRequestSpec struct {
 
 type JobMasterSpec struct {
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
-	Replicas int32 `json:"replicas"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=["job-master"]
+	// +kubebuilder:default={"job-master"}
 	Args []string `json:"args,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -268,9 +265,8 @@ type JobMasterResourceRequestSpec struct {
 //}
 
 type JobWorkerSpec struct {
-
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=["job-worker"]
+	// +kubebuilder:default={"job-worker"}
 	Args []string `json:"args,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -345,32 +341,32 @@ type ImageSpec struct {
 }
 
 type TieredStore struct {
-	Level      int32  `json:"level"`
-	Alias      string `json:"alias"`
-	Name       string `json:"name"`
-	MediumType string `json:"mediumType"`
-	Path       string `json:"path"`
-	Type       string `json:"type"`
-	Quota      string `json:"quota"`
-	High       string `json:"high"`
-	Low        string `json:"low"`
+	Level      int32   `json:"level"`
+	Alias      string  `json:"alias"`
+	Name       string  `json:"name"`
+	MediumType string  `json:"mediumType"`
+	Path       string  `json:"path"`
+	Type       string  `json:"type"`
+	Quota      string  `json:"quota"`
+	High       float64 `json:"high"`
+	Low        float64 `json:"low"`
 }
 
-type ShortCircuit struct {
+type ShortCircuitSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=true
 	Enabled bool `json:"enabled"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="uuid"
-	Policy int `json:"policy"`
+	Policy string `json:"policy"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:hostPath,persistentVolumeClaim
 	// +kubebuilder:default="hostPath"
 	VolumeType string `json:"volumeType"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="1Mi"
+	// +kubebuilder:default="100Mi"
 	Size string `json:"size"`
 
 	// +kubebuilder:validation:Optional
@@ -380,7 +376,15 @@ type ShortCircuit struct {
 
 // AlluxioStatus defines the observed state of Alluxio
 type AlluxioStatus struct {
-	Conditions []corev1.ComponentCondition `json:"conditions"`
+	// +kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"condition,omitempty"`
+	// +kubebuilder:validation:Optional
+	URLs []StatusURL `json:"urls,omitempty"`
+}
+
+type StatusURL struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 //+kubebuilder:object:root=true
