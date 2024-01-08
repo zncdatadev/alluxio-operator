@@ -9,4 +9,53 @@ metadata:
     app.kubernetes.io/created-by: alluxio-operator
   name: alluxio-sample
 spec:
-  # TODO(user): Add fields here
+  image:
+    pullPolicy: IfNotPresent
+    repository: alluxio/alluxio
+    tag: 2.5.0
+  master:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 100m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+  worker:
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 4Gi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+  jobMaster:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+  jobWorker:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+  tieredStore:
+    - alias: MEM
+      high: 0.95
+      level: 0
+      low: 0.7
+      mediumType: MEM
+      name: MEM
+      path: /dev/shm
+      quota: 500Mi
+      type: emptyDir

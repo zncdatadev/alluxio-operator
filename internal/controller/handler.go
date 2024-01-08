@@ -13,47 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func makeMasterService(ctx context.Context, instance *stackv1alpha1.Alluxio, schema *runtime.Scheme) *corev1.Service {
-	logger := log.FromContext(ctx)
-
-	var ports []corev1.ServicePort
-	masterPortsValue := reflect.ValueOf(instance.Spec.Master.Ports)
-	masterPortType := masterPortsValue.Type()
-	for i := 0; i < masterPortsValue.NumField(); i++ {
-		ports = append(ports, corev1.ServicePort{
-			Name: masterPortType.Field(i).Name,
-			Port: masterPortsValue.Index(i).Interface().(int32),
-		})
-	}
-
-	jobMasterPortsValue := reflect.ValueOf(instance.Spec.Master.Ports)
-	jobMasterPortType := jobMasterPortsValue.Type()
-	for i := 0; i < jobMasterPortsValue.NumField(); i++ {
-		ports = append(ports, corev1.ServicePort{
-			Name: "job-" + jobMasterPortType.Field(i).Name,
-			Port: jobMasterPortsValue.Index(i).Interface().(int32),
-		})
-	}
-
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.GetName() + "svc-master",
-			Namespace: instance.Namespace,
-		},
-
-		Spec: corev1.ServiceSpec{
-			Ports: ports,
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(instance, svc, schema); err != nil {
-		logger.Error(err, "Failed to set owner for master service")
-		return nil
-	}
-
-	return svc
-}
-
 func (r *AlluxioReconciler) reconcileMasterService(ctx context.Context, instance *stackv1alpha1.Alluxio, schema *runtime.Scheme) error {
 	logger := log.FromContext(ctx)
 	svc := makeMasterService(ctx, instance, schema)
@@ -68,38 +27,6 @@ func (r *AlluxioReconciler) reconcileMasterService(ctx context.Context, instance
 	}
 
 	return nil
-}
-
-func makeWorkerService(ctx context.Context, instance *stackv1alpha1.Alluxio, schema *runtime.Scheme) *corev1.Service {
-	logger := log.FromContext(ctx)
-	var ports []corev1.ServicePort
-
-	v := reflect.ValueOf(instance.Spec.Worker.Ports)
-	typeOf := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		ports = append(ports, corev1.ServicePort{
-			Name: typeOf.Field(i).Name,
-			Port: v.Index(i).Interface().(int32),
-		})
-	}
-
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.GetName() + "svc-worker",
-			Namespace: instance.Namespace,
-		},
-
-		Spec: corev1.ServiceSpec{
-			Ports: ports,
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(instance, svc, schema); err != nil {
-		logger.Error(err, "Failed to set owner for worker service")
-		return nil
-	}
-
-	return svc
 }
 
 func (r *AlluxioReconciler) reconcileWorkerService(ctx context.Context, instance *stackv1alpha1.Alluxio, schema *runtime.Scheme) error {
@@ -140,7 +67,6 @@ func makeMasterStatefulSet(ctx context.Context, instance *stackv1alpha1.Alluxio,
 			HostPort: jobMasterPortsValue.Index(i).Interface().(int32),
 		})
 	}
-
 	app := &appV1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.GetName() + "-master",
@@ -232,6 +158,9 @@ func (r *AlluxioReconciler) reconcileMasterStatefulSet(ctx context.Context, inst
 func makeWorkerDaemonSet(ctx context.Context, instance *stackv1alpha1.Alluxio, schema *runtime.Scheme) *appV1.DaemonSet {
 	logger := log.FromContext(ctx)
 
+	volumes := makeTieredStoreVolumes(instance)
+	volumeMounts := makeTieredStoreVolumeMounts(instance)
+
 	var workPorts []corev1.ContainerPort
 	workerPortsValue := reflect.ValueOf(instance.Spec.Worker.Ports)
 	workerPortsType := workerPortsValue.Type()
@@ -308,8 +237,10 @@ func makeWorkerDaemonSet(ctx context.Context, instance *stackv1alpha1.Alluxio, s
 									"mem": k8sResource.MustParse(instance.Spec.JobWorker.Resources.Requests.Memory),
 								},
 							},
+							VolumeMounts: volumeMounts,
 						},
 					},
+					Volumes: volumes,
 				},
 			},
 		},
