@@ -2031,17 +2031,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  ports:
-                    properties:
-                      rpc:
-                        default: 29999
-                        format: int32
-                        type: integer
-                      web:
-                        default: 30000
-                        format: int32
-                        type: integer
-                    type: object
                   properties:
                     additionalProperties:
                       type: string

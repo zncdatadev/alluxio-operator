@@ -25,7 +25,7 @@ func (r *AlluxioReconciler) makeWorkerDeployment(instance *stackv1alpha1.Alluxio
 	return deployments
 }
 
-func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroupName string, roleGroup *stackv1alpha1.RoleGroupWorkerSpec, schema *runtime.Scheme) *appsv1.Deployment {
+func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroupName string, roleGroup *stackv1alpha1.RoleWorkerSpec, schema *runtime.Scheme) *appsv1.Deployment {
 	labels := instance.GetLabels()
 
 	additionalLabels := make(map[string]string)
@@ -46,6 +46,16 @@ func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1al
 
 	var envVars []corev1.EnvVar
 	var envFrom []corev1.EnvFromSource
+	var shortCircuitEnabled bool
+	var needDomainSocketVolume bool
+
+	if instance.Spec.ClusterConfig != nil && instance.Spec.ClusterConfig.GetShortCircuit().Enabled {
+		shortCircuitEnabled = true
+	}
+
+	if shortCircuitEnabled && instance.Spec.ClusterConfig.GetShortCircuit().Policy == "uuid" {
+		needDomainSocketVolume = true
+	}
 
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "ALLUXIO_WORKER_HOSTNAME",
@@ -59,12 +69,12 @@ func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1al
 	envFrom = append(envFrom, corev1.EnvFromSource{
 		ConfigMapRef: &corev1.ConfigMapEnvSource{
 			LocalObjectReference: corev1.LocalObjectReference{
-				Name: instance.GetNameWithSuffix("config"),
+				Name: instance.GetNameWithSuffix("config" + "-" + roleGroupName),
 			},
 		},
 	})
 
-	roleGroup = instance.Spec.Worker.GetRoleGroup(instance.Spec, roleGroupName)
+	roleGroup = instance.Spec.Worker.GetRoleGroup(instance, roleGroupName)
 
 	if instance != nil && instance.Spec.Worker != nil {
 		envVarsMap := make(map[string]string)
@@ -94,56 +104,12 @@ func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1al
 		})
 	}
 
-	//var workerPorts []corev1.ContainerPort
-	//var workerPortsValue reflect.Value
-	//workerPortsValue = reflect.ValueOf(roleGroup.Ports)
-	//// check is Ptr
-	//if workerPortsValue.Kind() == reflect.Ptr && !workerPortsValue.IsNil() {
-	//	workerPortsValue = workerPortsValue.Elem()
-	//}
-	//
-	//for i := 0; i < workerPortsValue.NumField(); i++ {
-	//	field := workerPortsValue.Field(i)
-	//	workerPorts = append(workerPorts, corev1.ContainerPort{
-	//		Name:     field.Type().Name(),
-	//		HostPort: field.Interface().(int32),
-	//	})
-	//}
-
-	//var jobWorkerPorts []corev1.ContainerPort
-	//var jobWorkerPortsValue reflect.Value
-	//var jobWrokerPortsType reflect.Type
-	//jobWorkerPortsValue = reflect.ValueOf(roleGroup.Ports)
-	//jobWrokerPortsType = reflect.TypeOf(roleGroup.Ports)
-	//
-	//// check is Ptr
-	//if jobWorkerPortsValue.Kind() == reflect.Ptr && !jobWorkerPortsValue.IsNil() {
-	//	jobWorkerPortsValue = jobWorkerPortsValue.Elem()
-	//}
-	//
-	//for i := 0; i < jobWorkerPortsValue.NumField(); i++ {
-	//	field := jobWorkerPortsValue.Field(i)
-	//	jobWorkerPorts = append(jobWorkerPorts, corev1.ContainerPort{
-	//		Name:     jobWrokerPortsType.Field(i).Name,
-	//		HostPort: field.Interface().(int32),
-	//	})
-	//}
-
 	volumes := makeTieredStoreVolumes(instance)
-	volumes = append(makeShortCircuitVolumes(instance), volumes...)
-	volumeMounts := makeTieredStoreVolumeMounts(instance)
-	var needDomainSocketVolume bool
 
-	if instance.Spec.ClusterConfig != nil && instance.Spec.ClusterConfig.ShortCircuit != nil && instance.Spec.ClusterConfig.ShortCircuit.Enabled {
-		if instance.Spec.ClusterConfig.ShortCircuit.Policy == "uuid" {
-			needDomainSocketVolume = true
-		}
-	}
+	volumeMounts := makeTieredStoreVolumeMounts(instance)
 	if needDomainSocketVolume {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "alluxio-domain",
-			MountPath: "/opt/domain",
-		})
+		volumes = append(makeShortCircuitVolumes(instance, roleGroupName), volumes...)
+		volumeMounts = append(makeShortCircuitVolumeMounts(), volumeMounts...)
 	}
 
 	dep := &appsv1.Deployment{
@@ -195,6 +161,7 @@ func (r *AlluxioReconciler) makeWorkerDeploymentForRoleGroup(instance *stackv1al
 							Image:           roleGroup.Image.Repository + ":" + roleGroup.Image.Tag,
 							ImagePullPolicy: roleGroup.Image.PullPolicy,
 							Env:             envVars,
+							EnvFrom:         envFrom,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "job-rpc",
@@ -237,8 +204,8 @@ func (r *AlluxioReconciler) makeWorkerPVCs(instance *stackv1alpha1.Alluxio) ([]*
 	var pvcs []*corev1.PersistentVolumeClaim
 
 	if instance.Spec.Worker.RoleGroups != nil {
-		for _, roleGroup := range instance.Spec.Worker.RoleGroups {
-			pvc := r.makeWorkerPVCForRoleGroup(instance, roleGroup, r.Scheme)
+		for roleGroupName, roleGroup := range instance.Spec.Worker.RoleGroups {
+			pvc := r.makeWorkerPVCForRoleGroup(instance, roleGroupName, roleGroup, r.Scheme)
 			if pvc != nil {
 				pvcs = append(pvcs, pvc)
 			}
@@ -248,7 +215,7 @@ func (r *AlluxioReconciler) makeWorkerPVCs(instance *stackv1alpha1.Alluxio) ([]*
 	return pvcs, nil
 }
 
-func (r *AlluxioReconciler) makeWorkerPVCForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroup *stackv1alpha1.RoleGroupWorkerSpec, schema *runtime.Scheme) *corev1.PersistentVolumeClaim {
+func (r *AlluxioReconciler) makeWorkerPVCForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroupName string, roleGroup *stackv1alpha1.RoleWorkerSpec, schema *runtime.Scheme) *corev1.PersistentVolumeClaim {
 	labels := instance.GetLabels()
 
 	additionalLabels := make(map[string]string)
@@ -271,7 +238,7 @@ func (r *AlluxioReconciler) makeWorkerPVCForRoleGroup(instance *stackv1alpha1.Al
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortCircuit.PvcName,
+			Name:      shortCircuit.PvcName + "-" + roleGroupName,
 			Namespace: instance.Namespace,
 			Labels:    mergedLabels,
 		},
@@ -282,9 +249,6 @@ func (r *AlluxioReconciler) makeWorkerPVCForRoleGroup(instance *stackv1alpha1.Al
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: k8sResource.MustParse(shortCircuit.Size),
 				},
-			},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: mergedLabels,
 			},
 		},
 	}

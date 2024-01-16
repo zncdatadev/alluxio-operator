@@ -91,12 +91,6 @@ type ClusterConfigSpec struct {
 	Args []string `json:"args,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	MasterPorts *MasterPortsSpec `json:"ports,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	WorkerPorts *WorkerPortsSpec `json:"ports,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	ExtraContainers []corev1.Container `json:"extraContainers,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -163,226 +157,174 @@ func (clusterConfig *ClusterConfigSpec) GetSecurityContext() *corev1.PodSecurity
 
 type MasterSpec struct {
 	// +kubebuilder:validation:Optional
-	RoleConfig *RoleGroupMasterSpec `json:"roleConfig,omitempty"`
+	RoleConfig *RoleMasterSpec `json:"roleConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	RoleGroups map[string]*RoleGroupMasterSpec `json:"roleGroups,omitempty"`
+	RoleGroups map[string]*RoleMasterSpec `json:"roleGroups,omitempty"`
 }
 
-//func (master *MasterSpec) GetRoleGroup(name string) *RoleGroupMasterSpec {
-//	if master.RoleGroups == nil {
-//		return nil
-//	}
-//
-//	roleGroup := master.RoleGroups[name]
-//	roleConfig := master.RoleConfig
-//
-//	var instance Alluxio
-//	var image ImageSpec
-//	var podSecurityContext *corev1.PodSecurityContext
-//	var args []string
-//	var jobArgs []string
-//	var jobResources corev1.ResourceRequirements
-//	var hostPID bool
-//	var hostNetwork bool
-//	var dnsPolicy corev1.DNSPolicy
-//	var shareProcessNamespace bool
-//
-//	if roleGroup != nil && roleGroup.HostPID {
-//		hostPID = roleGroup.HostPID
-//	} else if roleConfig.HostPID {
-//		hostPID = roleConfig.HostPID
-//	}
-//
-//	if roleGroup != nil && roleGroup.HostNetwork {
-//		hostNetwork = roleGroup.HostNetwork
-//	} else if roleConfig.HostNetwork {
-//		hostNetwork = roleConfig.HostNetwork
-//	}
-//
-//	if roleGroup != nil && roleGroup.DnsPolicy != "" {
-//		dnsPolicy = roleGroup.DnsPolicy
-//	} else if roleConfig.DnsPolicy != "" {
-//		dnsPolicy = roleConfig.DnsPolicy
-//	} else {
-//		if hostNetwork {
-//			dnsPolicy = corev1.DNSClusterFirstWithHostNet
-//		} else {
-//			dnsPolicy = corev1.DNSClusterFirst
-//		}
-//	}
-//
-//	if roleGroup != nil && roleGroup.ShareProcessNamespace {
-//		shareProcessNamespace = roleGroup.ShareProcessNamespace
-//	} else if roleConfig.ShareProcessNamespace {
-//		shareProcessNamespace = roleConfig.ShareProcessNamespace
-//	}
-//
-//	if roleGroup != nil && roleGroup.Image != nil {
-//		image = *roleGroup.Image
-//	} else {
-//		image = *instance.Spec.ClusterConfig.Image
-//	}
-//
-//	if roleGroup != nil && roleGroup.SecurityContext != nil {
-//		securityContext := roleGroup.SecurityContext
-//		podSecurityContext = &corev1.PodSecurityContext{
-//			RunAsUser:  securityContext.RunAsUser,
-//			RunAsGroup: securityContext.RunAsGroup,
-//			FSGroup:    securityContext.FSGroup,
-//		}
-//	} else if instance.Spec.ClusterConfig.SecurityContext != nil {
-//		securityContext := instance.Spec.ClusterConfig.SecurityContext
-//		podSecurityContext = &corev1.PodSecurityContext{
-//			RunAsUser:  securityContext.RunAsUser,
-//			RunAsGroup: securityContext.RunAsGroup,
-//			FSGroup:    securityContext.FSGroup,
-//		}
-//	}
-//
-//	if roleGroup != nil && roleGroup.Args != nil {
-//		args = roleGroup.Args
-//	} else {
-//		args = instance.Spec.Master.Args
-//	}
-//
-//	if roleGroup != nil && roleGroup.JobMaster != nil && roleGroup.JobMaster.Args != nil {
-//		jobArgs = roleGroup.JobMaster.Args
-//	} else if roleConfig != nil && roleConfig.JobMaster != nil && roleConfig.JobMaster.Args != nil {
-//		jobArgs = roleConfig.JobMaster.Args
-//	}
-//
-//	if roleGroup != nil && roleGroup.JobMaster != nil && roleGroup.JobMaster.Resources != nil {
-//		jobResources = *roleGroup.JobMaster.Resources
-//	} else if roleConfig.JobMaster.Resources != nil {
-//		jobResources = *roleConfig.JobMaster.Resources
-//	}
-//
-//	var masterEmbedded int32
-//	var masterRpcPort int32
-//	var masterWebPort int32
-//	if roleGroup.Ports != nil {
-//		masterEmbedded = roleGroup.Ports.Embedded
-//		masterRpcPort = roleGroup.Ports.Rpc
-//		masterWebPort = roleGroup.Ports.Web
-//	} else if master.GetMasterPorts() != nil {
-//		masterEmbedded = master.GetMasterPorts().Embedded
-//		masterRpcPort = master.GetMasterPorts().Rpc
-//		masterWebPort = master.GetMasterPorts().Web
-//	}
-//
-//	var jobMasterEmbedded int32
-//	var jobMasterRpcPort int32
-//	var jobMasterWebPort int32
-//	if roleGroup.JobMaster.Ports != nil {
-//		jobMasterEmbedded = roleGroup.JobMaster.Ports.Embedded
-//		jobMasterRpcPort = roleGroup.JobMaster.Ports.Rpc
-//		jobMasterWebPort = roleGroup.JobMaster.Ports.Web
-//	} else if master.RoleConfig.JobMaster.Ports != nil {
-//		jobMasterEmbedded = master.GetJobMasterPorts(clusterconfig, ).Embedded
-//		jobMasterRpcPort = master.GetJobMasterPorts().Rpc
-//		jobMasterWebPort = master.GetJobMasterPorts().Web
-//	}
-//
-//	mergedRoleGroup := &RoleGroupMasterSpec{
-//		HostPID:               hostPID,
-//		HostNetwork:           hostNetwork,
-//		DnsPolicy:             dnsPolicy,
-//		ShareProcessNamespace: shareProcessNamespace,
-//		Image:                 &image,
-//		Ports: &MasterPortsSpec{
-//			Embedded: masterEmbedded,
-//			Rpc:      masterRpcPort,
-//			Web:      masterWebPort,
-//		},
-//		SecurityContext: podSecurityContext,
-//		Args:            args,
-//		JobMaster: &JobMasterSpec{
-//			Args:      jobArgs,
-//			Resources: &jobResources,
-//			Ports: &JobMasterPortsSpec{
-//				Embedded: jobMasterEmbedded,
-//				Rpc:      jobMasterRpcPort,
-//				Web:      jobMasterWebPort,
-//			},
-//		},
-//	}
-//
-//	return mergedRoleGroup
-//}
-
-type RoleConfigMasterSpec struct {
-	// +kubebuilder:validation:Optional
-	JobMaster *JobMasterSpec `json:"jobMaster,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
-	Count int32 `json:"count,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={}
-	JvmOptions []string `json:"jvmOptions,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	HostPID bool `json:"hostPID,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	HostNetwork bool `json:"hostNetwork,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	DnsPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	ShareProcessNamespace bool `json:"shareProcessNamespace,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={}
-	Properties map[string]string `json:"properties,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={}
-	EnvVars map[string]string `json:"envVars,omitempty"`
-}
-
-func (master *MasterSpec) GetHostPID() bool {
-	if master.RoleConfig.HostPID {
-		return master.RoleConfig.HostPID
+func (master *MasterSpec) GetRoleGroup(instance *Alluxio, name string) *RoleMasterSpec {
+	if master.RoleGroups == nil {
+		return nil
 	}
-	return false
-}
 
-func (master *MasterSpec) GetHostNetwork() bool {
-	if master.RoleConfig.HostNetwork {
-		return master.RoleConfig.HostNetwork
+	clusterConfig := instance.Spec.ClusterConfig
+	roleGroup := master.RoleGroups[name]
+	roleConfig := master.RoleConfig
+
+	var image ImageSpec
+	var podSecurityContext *corev1.PodSecurityContext
+	var jobResources corev1.ResourceRequirements
+	var envVars map[string]string
+
+	var extraContainers []corev1.Container
+	var resources corev1.ResourceRequirements
+	var replica int32
+
+	hostPID := master.GetHostPID(roleGroup, roleConfig)
+	hostNetwork := master.GetHostNetwork(roleGroup, roleConfig)
+	dnsPolicy := master.GetDnsPolicy(roleGroup, roleConfig)
+	shareProcessNamespace := master.GetShareProcessNamespace(roleGroup, roleConfig)
+	args := master.GetMasterArgs(roleGroup, roleConfig)
+	jobArgs := master.GetJobMasterArgs(roleGroup, roleConfig)
+
+	if roleGroup != nil {
+		if roleGroup.Image != nil {
+			image = *roleGroup.Image
+		} else if roleConfig.Image != nil {
+			image = *roleConfig.Image
+		} else if clusterConfig.Image != nil {
+			image = *clusterConfig.Image
+		}
+
+		if roleGroup.SecurityContext != nil {
+			podSecurityContext = roleGroup.SecurityContext
+		} else {
+			podSecurityContext = &corev1.PodSecurityContext{
+				RunAsUser:  instance.Spec.ClusterConfig.GetSecurityContext().RunAsUser,
+				RunAsGroup: instance.Spec.ClusterConfig.GetSecurityContext().RunAsGroup,
+				FSGroup:    instance.Spec.ClusterConfig.GetSecurityContext().FSGroup,
+			}
+		}
+
+		if roleGroup.Replicas != nil {
+			replica = *roleGroup.Replicas
+		} else if roleConfig.Replicas != nil {
+			replica = *roleConfig.Replicas
+		} else if clusterConfig.Replicas != nil {
+			replica = *clusterConfig.Replicas
+		} else {
+			replica = 1
+		}
+
+		if roleGroup.Resources != nil {
+			resources = *roleGroup.Resources
+		} else if roleConfig.Resources != nil {
+			resources = *roleConfig.Resources
+		}
+
+		if roleGroup.EnvVars != nil {
+			envVars = roleGroup.EnvVars
+		} else if instance.Spec.Worker.RoleConfig.EnvVars != nil {
+			envVars = instance.Spec.Worker.RoleConfig.EnvVars
+		}
+
+		if roleGroup.JobMaster != nil {
+			if roleGroup.JobMaster.Args != nil {
+				jobArgs = roleGroup.JobMaster.Args
+			}
+
+			if roleGroup.JobMaster.Resources != nil {
+				jobResources = *roleGroup.JobMaster.Resources
+			}
+		}
 	}
-	return false
+
+	if roleGroup != nil && roleGroup.ExtraContainers != nil {
+		extraContainers = roleGroup.ExtraContainers
+	} else if instance.Spec.Worker.RoleConfig.ExtraContainers != nil {
+		extraContainers = instance.Spec.Worker.RoleConfig.ExtraContainers
+	}
+
+	masterPorts := master.GetMasterPorts(roleGroup, roleConfig)
+	masterRpcPort := masterPorts.Rpc
+	masterWebPort := masterPorts.Web
+	masterEmbedded := masterPorts.Embedded
+
+	jobMasterPorts := master.GetJobMasterPorts(clusterConfig, roleGroup, roleConfig)
+	jobMasterRpcPort := jobMasterPorts.Rpc
+	jobMasterWebPort := jobMasterPorts.Web
+	jobMasterEmbedded := jobMasterPorts.Embedded
+
+	mergedRoleGroup := &RoleMasterSpec{
+		HostPID:               &hostPID,
+		HostNetwork:           &hostNetwork,
+		DnsPolicy:             dnsPolicy,
+		ShareProcessNamespace: &shareProcessNamespace,
+		Image:                 &image,
+		Replicas:              &replica,
+		Ports: &MasterPortsSpec{
+			Rpc:      masterRpcPort,
+			Web:      masterWebPort,
+			Embedded: masterEmbedded,
+		},
+		Resources:       &resources,
+		SecurityContext: podSecurityContext,
+		Args:            args,
+		EnvVars:         envVars,
+		ExtraContainers: extraContainers,
+		JobMaster: &JobMasterSpec{
+			Args:      jobArgs,
+			Resources: &jobResources,
+			Ports: &JobMasterPortsSpec{
+				Rpc:      jobMasterRpcPort,
+				Web:      jobMasterWebPort,
+				Embedded: jobMasterEmbedded,
+			},
+		},
+	}
+
+	return mergedRoleGroup
 }
 
-func (master *MasterSpec) GetDnsPolicy() corev1.DNSPolicy {
-	if master.GetHostNetwork() {
+func (master *MasterSpec) GetHostPID(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) bool {
+	if RoleGroup != nil && RoleGroup.HostPID != nil {
+		return *RoleGroup.HostPID
+	} else {
+		return *RoleConfig.HostPID
+	}
+}
+
+func (master *MasterSpec) GetHostNetwork(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) bool {
+	if RoleGroup != nil && RoleGroup.HostNetwork != nil {
+		return *RoleGroup.HostNetwork
+	} else {
+		return *RoleConfig.HostNetwork
+	}
+}
+
+func (master *MasterSpec) GetDnsPolicy(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) corev1.DNSPolicy {
+	if master.GetHostNetwork(RoleGroup, RoleConfig) {
 		return corev1.DNSClusterFirstWithHostNet
 	}
 	return corev1.DNSClusterFirst
 }
 
-func (master *MasterSpec) GetShareProcessNamespace() bool {
-	if master.RoleConfig.ShareProcessNamespace {
-		return master.RoleConfig.ShareProcessNamespace
+func (master *MasterSpec) GetShareProcessNamespace(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) bool {
+	if RoleGroup != nil && RoleGroup.ShareProcessNamespace != nil {
+		return *RoleGroup.ShareProcessNamespace
+	} else {
+		return *RoleConfig.ShareProcessNamespace
 	}
-	return false
-
 }
 
-type RoleGroupMasterSpec struct {
+type RoleMasterSpec struct {
 	// +kubebuilder:validation:Optional
 	Image *ImageSpec `json:"image,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=1
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
@@ -431,22 +373,32 @@ type RoleGroupMasterSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	HostPID bool `json:"hostPID,omitempty"`
+	HostPID *bool `json:"hostPID,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	HostNetwork bool `json:"hostNetwork,omitempty"`
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	DnsPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	ShareProcessNamespace bool `json:"shareProcessNamespace,omitempty"`
+	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={}
 	Properties map[string]string `json:"properties,omitempty"`
+}
+
+func (master *MasterSpec) GetMasterArgs(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) []string {
+	if RoleGroup != nil && RoleGroup.Args != nil {
+		return RoleGroup.Args
+	} else if RoleConfig != nil && RoleConfig.Args != nil {
+		return RoleConfig.Args
+	} else {
+		return []string{"master-only", "--no-format"}
+	}
 }
 
 type MasterPortsSpec struct {
@@ -461,38 +413,39 @@ type MasterPortsSpec struct {
 	Web int32 `json:"web,omitempty"`
 }
 
-//func (master *MasterSpec) GetMasterPorts() *MasterPortsSpec {
-//	if master.Ports == nil {
-//		return &MasterPortsSpec{
-//			Embedded: int32(MasterEmbedded),
-//			Rpc:      int32(MasterRpcPort),
-//			Web:      int32(MasterWebPort),
-//		}
-//	}
-//	return master.Ports
-//}
+func (master *MasterSpec) GetMasterPorts(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) *MasterPortsSpec {
+	if RoleGroup != nil && RoleGroup.Ports != nil {
+		return RoleGroup.Ports
+	} else if RoleConfig != nil && RoleConfig.Ports != nil {
+		return RoleConfig.Ports
+	} else {
+		return &MasterPortsSpec{
+			Embedded: int32(MasterEmbedded),
+			Rpc:      int32(MasterRpcPort),
+			Web:      int32(MasterWebPort),
+		}
+	}
+}
 
 type WorkerSpec struct {
 	// +kubebuilder:validation:Optional
-	RoleConfig *RoleGroupWorkerSpec `json:"roleConfig,omitempty"`
+	RoleConfig *RoleWorkerSpec `json:"roleConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	RoleGroups map[string]*RoleGroupWorkerSpec `json:"roleGroups,omitempty"`
+	RoleGroups map[string]*RoleWorkerSpec `json:"roleGroups,omitempty"`
 }
 
-func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleGroupWorkerSpec {
+func (worker *WorkerSpec) GetRoleGroup(instance *Alluxio, name string) *RoleWorkerSpec {
 	if worker.RoleGroups == nil {
 		return nil
 	}
 
-	clusterConfig := instance.ClusterConfig
+	clusterConfig := instance.Spec.ClusterConfig
 	roleGroup := worker.RoleGroups[name]
 	roleConfig := worker.RoleConfig
 
 	var image ImageSpec
 	var podSecurityContext *corev1.PodSecurityContext
-	var args []string
-	var jobArgs []string
 	var jobResources corev1.ResourceRequirements
 	var envVars map[string]string
 	var extraContainers []corev1.Container
@@ -503,6 +456,8 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 	hostNetwork := worker.GetHostNetwork(roleGroup, roleConfig)
 	dnsPolicy := worker.GetDnsPolicy(roleGroup, roleConfig)
 	shareProcessNamespace := worker.GetShareProcessNamespace(roleGroup, roleConfig)
+	args := worker.GetWorkerArgs(roleGroup, roleConfig)
+	jobArgs := worker.GetJobWorkerArgs(roleGroup, roleConfig)
 
 	if roleGroup != nil {
 		if roleGroup.Image != nil {
@@ -517,9 +472,9 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 			podSecurityContext = roleGroup.SecurityContext
 		} else {
 			podSecurityContext = &corev1.PodSecurityContext{
-				RunAsUser:  instance.ClusterConfig.GetSecurityContext().RunAsUser,
-				RunAsGroup: instance.ClusterConfig.GetSecurityContext().RunAsGroup,
-				FSGroup:    instance.ClusterConfig.GetSecurityContext().FSGroup,
+				RunAsUser:  instance.Spec.ClusterConfig.GetSecurityContext().RunAsUser,
+				RunAsGroup: instance.Spec.ClusterConfig.GetSecurityContext().RunAsGroup,
+				FSGroup:    instance.Spec.ClusterConfig.GetSecurityContext().FSGroup,
 			}
 		}
 
@@ -539,16 +494,10 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 			resources = *roleConfig.Resources
 		}
 
-		if roleGroup.Args != nil {
-			args = roleGroup.Args
-		} else if roleConfig.Args != nil {
-			args = roleConfig.Args
-		}
-
 		if roleGroup.EnvVars != nil {
 			envVars = roleGroup.EnvVars
 		} else {
-			envVars = instance.Worker.RoleConfig.EnvVars
+			envVars = instance.Spec.Worker.RoleConfig.EnvVars
 		}
 
 		if roleGroup.JobWorker != nil {
@@ -564,11 +513,11 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 
 	if roleGroup != nil && roleGroup.ExtraContainers != nil {
 		extraContainers = roleGroup.ExtraContainers
-	} else if instance.Worker.RoleConfig.ExtraContainers != nil {
-		extraContainers = instance.Worker.RoleConfig.ExtraContainers
+	} else if instance.Spec.Worker.RoleConfig.ExtraContainers != nil {
+		extraContainers = instance.Spec.Worker.RoleConfig.ExtraContainers
 	}
 
-	workerPorts := worker.GetWorkerPorts(clusterConfig, roleGroup, roleConfig)
+	workerPorts := worker.GetWorkerPorts(roleGroup, roleConfig)
 	workerRpcPort := workerPorts.Rpc
 	workerWebPort := workerPorts.Web
 
@@ -577,7 +526,7 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 	jobWorkerDataPort := jobWorkerPorts.Data
 	jobWorkerWebPort := jobWorkerPorts.Web
 
-	mergedRoleGroup := &RoleGroupWorkerSpec{
+	mergedRoleGroup := &RoleWorkerSpec{
 		HostPID:               &hostPID,
 		HostNetwork:           &hostNetwork,
 		DnsPolicy:             dnsPolicy,
@@ -607,7 +556,7 @@ func (worker *WorkerSpec) GetRoleGroup(instance AlluxioSpec, name string) *RoleG
 	return mergedRoleGroup
 }
 
-func (worker *WorkerSpec) GetHostPID(RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) bool {
+func (worker *WorkerSpec) GetHostPID(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) bool {
 	if RoleGroup != nil && RoleGroup.HostPID != nil {
 		return *RoleGroup.HostPID
 	} else {
@@ -615,7 +564,7 @@ func (worker *WorkerSpec) GetHostPID(RoleGroup *RoleGroupWorkerSpec, RoleConfig 
 	}
 }
 
-func (worker *WorkerSpec) GetHostNetwork(RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) bool {
+func (worker *WorkerSpec) GetHostNetwork(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) bool {
 	if RoleGroup != nil && RoleGroup.HostNetwork != nil {
 		return *RoleGroup.HostNetwork
 	} else {
@@ -623,14 +572,14 @@ func (worker *WorkerSpec) GetHostNetwork(RoleGroup *RoleGroupWorkerSpec, RoleCon
 	}
 }
 
-func (worker *WorkerSpec) GetDnsPolicy(RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) corev1.DNSPolicy {
+func (worker *WorkerSpec) GetDnsPolicy(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) corev1.DNSPolicy {
 	if worker.GetHostNetwork(RoleGroup, RoleConfig) {
 		return corev1.DNSClusterFirstWithHostNet
 	}
 	return corev1.DNSClusterFirst
 }
 
-func (worker *WorkerSpec) GetShareProcessNamespace(RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) bool {
+func (worker *WorkerSpec) GetShareProcessNamespace(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) bool {
 	if RoleGroup != nil && RoleGroup.ShareProcessNamespace != nil {
 		return *RoleGroup.ShareProcessNamespace
 	} else {
@@ -638,7 +587,7 @@ func (worker *WorkerSpec) GetShareProcessNamespace(RoleGroup *RoleGroupWorkerSpe
 	}
 }
 
-type RoleGroupWorkerSpec struct {
+type RoleWorkerSpec struct {
 	// +kubebuilder:validation:Optional
 	Image *ImageSpec `json:"image,omitempty"`
 
@@ -711,6 +660,16 @@ type RoleGroupWorkerSpec struct {
 	Properties map[string]string `json:"properties,omitempty"`
 }
 
+func (worker *WorkerSpec) GetWorkerArgs(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) []string {
+	if RoleGroup != nil && RoleGroup.Args != nil {
+		return RoleGroup.Args
+	} else if RoleConfig != nil && RoleConfig.Args != nil {
+		return RoleConfig.Args
+	} else {
+		return []string{"worker-only", "--no-format"}
+	}
+}
+
 type WorkerPortsSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=29999
@@ -720,13 +679,11 @@ type WorkerPortsSpec struct {
 	Web int32 `json:"web,omitempty"`
 }
 
-func (worker *WorkerSpec) GetWorkerPorts(ClusterConfig *ClusterConfigSpec, RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) *WorkerPortsSpec {
+func (worker *WorkerSpec) GetWorkerPorts(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) *WorkerPortsSpec {
 	if RoleGroup != nil && RoleGroup.Ports != nil {
 		return RoleGroup.Ports
 	} else if RoleConfig != nil && RoleConfig.Ports != nil {
 		return RoleConfig.Ports
-	} else if ClusterConfig != nil && ClusterConfig.WorkerPorts != nil {
-		return ClusterConfig.WorkerPorts
 	} else {
 		return &WorkerPortsSpec{
 			Rpc: int32(WorkerRpcPort),
@@ -755,6 +712,16 @@ type JobMasterSpec struct {
 	JvmOptions []string `json:"jvmOptions,omitempty"`
 }
 
+func (master *MasterSpec) GetJobMasterArgs(RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) []string {
+	if RoleGroup != nil && RoleGroup.JobMaster != nil && RoleGroup.JobMaster.Args != nil {
+		return RoleGroup.JobMaster.Args
+	} else if RoleConfig != nil && RoleConfig.JobMaster != nil && RoleConfig.JobMaster.Args != nil {
+		return RoleConfig.JobMaster.Args
+	} else {
+		return []string{"job-master"}
+	}
+}
+
 type JobMasterPortsSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=20001
@@ -767,7 +734,7 @@ type JobMasterPortsSpec struct {
 	Embedded int32 `json:"embedded,omitempty"`
 }
 
-func (master *MasterSpec) GetJobMasterPorts(ClusterConfig *ClusterConfigSpec, RoleGroup *RoleGroupMasterSpec, RoleConfig *RoleGroupMasterSpec) *JobMasterPortsSpec {
+func (master *MasterSpec) GetJobMasterPorts(ClusterConfig *ClusterConfigSpec, RoleGroup *RoleMasterSpec, RoleConfig *RoleMasterSpec) *JobMasterPortsSpec {
 	if RoleGroup != nil && RoleGroup.JobMaster != nil && RoleGroup.JobMaster.Ports != nil {
 		return RoleGroup.JobMaster.Ports
 	} else if RoleConfig != nil && RoleConfig.JobMaster != nil && RoleConfig.JobMaster.Ports != nil {
@@ -802,6 +769,16 @@ type JobWorkerSpec struct {
 	JvmOptions []string `json:"jvmOptions,omitempty"`
 }
 
+func (worker *WorkerSpec) GetJobWorkerArgs(RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) []string {
+	if RoleGroup != nil && RoleGroup.JobWorker != nil && RoleGroup.JobWorker.Args != nil {
+		return RoleGroup.JobWorker.Args
+	} else if RoleConfig != nil && RoleConfig.JobWorker != nil && RoleConfig.JobWorker.Args != nil {
+		return RoleConfig.JobWorker.Args
+	} else {
+		return []string{"job-worker"}
+	}
+}
+
 type JobWorkerPortsSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=30001
@@ -814,7 +791,7 @@ type JobWorkerPortsSpec struct {
 	Web int32 `json:"web,omitempty"`
 }
 
-func (worker *WorkerSpec) GetJobWorkerPorts(ClusterConfig *ClusterConfigSpec, RoleGroup *RoleGroupWorkerSpec, RoleConfig *RoleGroupWorkerSpec) *JobWorkerPortsSpec {
+func (worker *WorkerSpec) GetJobWorkerPorts(ClusterConfig *ClusterConfigSpec, RoleGroup *RoleWorkerSpec, RoleConfig *RoleWorkerSpec) *JobWorkerPortsSpec {
 	if RoleGroup != nil && RoleGroup.JobWorker != nil && RoleGroup.JobWorker.Ports != nil {
 		return RoleGroup.JobWorker.Ports
 	} else if RoleConfig != nil && RoleConfig.JobWorker != nil && RoleConfig.JobWorker.Ports != nil {
@@ -932,12 +909,12 @@ func (clusterConfig *ClusterConfigSpec) GetShortCircuit() ShortCircuitSpec {
 	return ShortCircuitSpec{
 		Enabled:      true,
 		Policy:       "uuid",
-		VolumeType:   "hostPath",
+		VolumeType:   "persistentVolumeClaim",
 		Size:         "100Mi",
 		PvcName:      "alluxio-worker-domain-socket",
-		StorageClass: "standard",
+		StorageClass: "local-path",
 		AccessMode:   "ReadWriteOnce",
-		HosePath:     "/tmp/",
+		HosePath:     "/tmp/alluxio-domain",
 	}
 }
 
@@ -948,7 +925,7 @@ func (clusterConfig *ClusterConfigSpec) GetJournal() JournalSpec {
 		UfsType:      "local",
 		VolumeType:   "persistentVolumeClaim",
 		Size:         "1Gi",
-		StorageClass: "standard",
+		StorageClass: "local-path",
 		AccessMode:   "ReadWriteOnce",
 		Medium:       "",
 		RunFormat:    false,

@@ -13,7 +13,7 @@ spec:
     image:
       pullPolicy: IfNotPresent
       repository: alluxio/alluxio
-      tag: 2.5.0
+      tag: 2.9.3
     tieredStore:
       - alias: MEM
         high: 0.95
@@ -27,8 +27,8 @@ spec:
     roleConfig:
       resources:
         limits:
-          cpu: 100m
-          memory: 512Mi
+          cpu: 200m
+          memory: 1Gi
         requests:
           cpu: 100m
           memory: 512Mi
@@ -40,15 +40,19 @@ spec:
         replicas: 1
         matchLabels:
           app: master
+      large:
+        replicas: 1
+        matchLabels:
+          app: large-master
   worker:
     roleConfig:
       resources:
         limits:
-          cpu: 100m
-          memory: 512Mi
+          cpu: 200m
+          memory: 1Gi
         requests:
           cpu: 100m
-          memory: 512Mi
+          memory: 512M
       jobWorker:
         args:
           - job-worker
@@ -57,3 +61,14 @@ spec:
         replicas: 1
         matchLabels:
           app: worker
+      large:
+        replicas: 1
+        matchLabels:
+          app: large-worker
+        resources:
+          limits:
+            cpu: 300m
+            memory: 2Gi
+          requests:
+            cpu: 200m
+            memory: 1Gi

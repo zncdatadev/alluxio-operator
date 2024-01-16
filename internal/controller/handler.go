@@ -13,21 +13,21 @@ import (
 	"strings"
 )
 
-//func (r *AlluxioReconciler) reconcileMasterStatefulSet(ctx context.Context, instance *stackv1alpha1.Alluxio) error {
-//
-//	masterStatefulSet := r.makeMasterStatefulSet(instance)
-//	for _, app := range masterStatefulSet {
-//		if app == nil {
-//			continue
-//		}
-//
-//		if err := CreateOrUpdate(ctx, r.Client, app); err != nil {
-//			r.Log.Error(err, "Failed to create or update master Statefulset", "statefulset", app.Name)
-//			return err
-//		}
-//	}
-//	return nil
-//}
+func (r *AlluxioReconciler) reconcileMasterStatefulSet(ctx context.Context, instance *stackv1alpha1.Alluxio) error {
+
+	masterStatefulSet := r.makeMasterStatefulSet(instance)
+	for _, app := range masterStatefulSet {
+		if app == nil {
+			continue
+		}
+
+		if err := CreateOrUpdate(ctx, r.Client, app); err != nil {
+			r.Log.Error(err, "Failed to create or update master Statefulset", "statefulset", app.Name)
+			return err
+		}
+	}
+	return nil
+}
 
 func (r *AlluxioReconciler) reconcileWorkerDeployment(ctx context.Context, instance *stackv1alpha1.Alluxio) error {
 	workerDeployment := r.makeWorkerDeployment(instance)
@@ -76,10 +76,12 @@ func (r *AlluxioReconciler) makeServices(instance *stackv1alpha1.Alluxio) ([]*co
 	return services, nil
 }
 
-func (r *AlluxioReconciler) makeMasterServiceForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroupName string, roleGroup *stackv1alpha1.RoleGroupMasterSpec, schema *runtime.Scheme) (*corev1.Service, error) {
+func (r *AlluxioReconciler) makeMasterServiceForRoleGroup(instance *stackv1alpha1.Alluxio, roleGroupName string, roleGroup *stackv1alpha1.RoleMasterSpec, schema *runtime.Scheme) (*corev1.Service, error) {
 	labels := instance.GetLabels()
 
 	additionalLabels := make(map[string]string)
+
+	roleGroup = instance.Spec.Master.GetRoleGroup(instance, roleGroupName)
 
 	if roleGroup != nil && roleGroup.MatchLabels != nil {
 		for k, v := range roleGroup.MatchLabels {
@@ -95,39 +97,9 @@ func (r *AlluxioReconciler) makeMasterServiceForRoleGroup(instance *stackv1alpha
 		mergedLabels[key] = value
 	}
 
-	//var masterPorts []corev1.ServicePort
-	//var masterPortsValue reflect.Value
-	//if roleGroup.Ports != nil {
-	//	masterPortsValue = reflect.ValueOf(roleGroup.Ports)
-	//} else if instance.Spec.Master.Ports != nil {
-	//	masterPortsValue = reflect.ValueOf(instance.Spec.Master.Ports)
-	//}
-	//masterPortsType := masterPortsValue.Type()
-	//for i := 0; i < masterPortsValue.NumField(); i++ {
-	//	masterPorts = append(masterPorts, corev1.ServicePort{
-	//		Name: masterPortsType.Field(i).Name,
-	//		Port: masterPortsValue.Index(i).Interface().(int32),
-	//	})
-	//}
-	//
-	//var jobMasterPorts []corev1.ServicePort
-	//var jobMasterPortsValue reflect.Value
-	//if roleGroup.JobMaster.Ports != nil {
-	//	jobMasterPortsValue = reflect.ValueOf(roleGroup.JobMaster.Ports)
-	//} else if instance.Spec.Master.RoleConfig.JobMaster.Ports != nil {
-	//	jobMasterPortsValue = reflect.ValueOf(instance.Spec.Master.RoleConfig.JobMaster.Ports)
-	//}
-	//jobMasterPortsType := jobMasterPortsValue.Type()
-	//for i := 0; i < jobMasterPortsValue.NumField(); i++ {
-	//	jobMasterPorts = append(jobMasterPorts, corev1.ServicePort{
-	//		Name: jobMasterPortsType.Field(i).Name,
-	//		Port: jobMasterPortsValue.Index(i).Interface().(int32),
-	//	})
-	//}
-
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.GetNameWithSuffix("master-" + roleGroupName),
+			Name:      instance.GetNameWithSuffix("master-" + roleGroupName + "-0"),
 			Namespace: instance.Namespace,
 			Labels:    mergedLabels,
 		},
@@ -137,9 +109,29 @@ func (r *AlluxioReconciler) makeMasterServiceForRoleGroup(instance *stackv1alpha
 					Name: "rpc",
 					Port: roleGroup.Ports.Rpc,
 				},
+				{
+					Name: "web",
+					Port: roleGroup.Ports.Web,
+				},
+				{
+					Name: "embedded",
+					Port: roleGroup.Ports.Embedded,
+				},
+				{
+					Name: "job-rpc",
+					Port: roleGroup.JobMaster.Ports.Rpc,
+				},
+				{
+					Name: "job-web",
+					Port: roleGroup.JobMaster.Ports.Web,
+				},
+				{
+					Name: "job-embedded",
+					Port: roleGroup.JobMaster.Ports.Embedded,
+				},
 			},
 			Selector:  mergedLabels,
-			ClusterIP: "Node",
+			ClusterIP: "None",
 		},
 	}
 	err := ctrl.SetControllerReference(instance, svc, schema)
@@ -170,18 +162,21 @@ func (r *AlluxioReconciler) reconcileService(ctx context.Context, instance *stac
 	return nil
 }
 
-func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, masterRoleGroup *stackv1alpha1.RoleGroupMasterSpec, workerRoleGroup *stackv1alpha1.RoleGroupWorkerSpec) (*corev1.ConfigMap, error) {
+func (r *AlluxioReconciler) makeConfigMapForRoleGroup(instance *stackv1alpha1.Alluxio, mgn, wgn string, masterRoleGroup *stackv1alpha1.RoleMasterSpec, workerRoleGroup *stackv1alpha1.RoleWorkerSpec) (*corev1.ConfigMap, error) {
 
-	var roleGroupName string
-
-	roleGroup := instance.Spec.Worker.GetRoleGroup(instance.Spec, roleGroupName)
+	//split := strings.Split(roleGroupName, "-")
+	//mgn := split[0]
+	//wgn := split[1]
+	masterRoleGroup = instance.Spec.Master.GetRoleGroup(instance, mgn)
+	workerRoleGroup = instance.Spec.Worker.GetRoleGroup(instance, wgn)
 	journal := instance.Spec.ClusterConfig.GetJournal()
+	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 
 	var MasterCount int32
 	var isSingleMaster, isHaEmbedded bool
 
-	if masterRoleGroup != nil && masterRoleGroup.Replicas != 0 {
-		MasterCount = masterRoleGroup.Replicas
+	if masterRoleGroup != nil && masterRoleGroup.Replicas != nil {
+		MasterCount = *masterRoleGroup.Replicas
 	}
 
 	isSingleMaster = MasterCount == 1
@@ -196,22 +191,20 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 	alluxioJavaOpts := make([]string, 0)
 
 	if isSingleMaster {
-		alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.hostname=%s", instance.GetNameWithSuffix("master-"+roleGroupName)))
+		alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.hostname=%s", instance.GetNameWithSuffix("master-"+mgn+"-0")))
 	}
 
-	if instance.Spec.ClusterConfig.Journal != nil {
-		if instance.Spec.ClusterConfig.Journal.Type != "" {
-			alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.journal.type=%v", instance.Spec.ClusterConfig.Journal.Type))
-		}
-		if instance.Spec.ClusterConfig.Journal.Folder != "" {
-			alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.journal.folder=%v", instance.Spec.ClusterConfig.Journal.Folder))
-		}
+	if journal.Type != "" {
+		alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.journal.type=%v", journal.Type))
+	}
+	if journal.Folder != "" {
+		alluxioJavaOpts = append(alluxioJavaOpts, fmt.Sprintf("-Dalluxio.master.journal.folder=%v", journal.Folder))
 	}
 
 	if isHaEmbedded {
 		embeddedJournalAddresses := "-Dalluxio.master.embedded.journal.addresses="
 		for i := 0; i < int(MasterCount); i++ {
-			embeddedJournalAddresses += fmt.Sprintf("%s-master-%d:19200,", instance.GetNameWithSuffix(roleGroupName), i)
+			embeddedJournalAddresses += fmt.Sprintf("%s-master-%d:19200,", instance.GetNameWithSuffix(mgn), i)
 		}
 		alluxioJavaOpts = append(alluxioJavaOpts, embeddedJournalAddresses)
 	}
@@ -280,28 +273,37 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 	workerJavaOpts := make([]string, 0)
 	workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")
 
-	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.rpc.port=%d", roleGroup.Ports.Rpc))
-	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.web.port=%d", roleGroup.Ports.Web))
+	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.rpc.port=%d", workerRoleGroup.Ports.Rpc))
+	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.web.port=%d", workerRoleGroup.Ports.Web))
 
-	if roleGroup.Ports.Rpc == 0 {
+	if workerRoleGroup.Ports.Rpc == 0 {
 		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.rpc.port=%d", instance.Spec.Worker.RoleConfig.Ports.Rpc))
 	}
 
-	if roleGroup.Ports.Web == 0 {
+	if workerRoleGroup.Ports.Web == 0 {
 		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.web.port=%d", instance.Spec.Worker.RoleConfig.Ports.Web))
 	}
 
-	if roleGroup.HostNetwork == nil || *roleGroup.HostNetwork || *instance.Spec.Worker.RoleConfig.HostNetwork {
+	if !shortCircuit.Enabled {
+		workerJavaOpts = append(workerJavaOpts, "-Dalluxio.user.short.circuit.enabled=false")
+	}
+
+	if shortCircuit.Enabled || shortCircuit.Policy == "uuid" {
+		workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.data.server.domain.socket.address=/opt/domain")
+		workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.data.server.domain.socket.as.uuid=true")
+	}
+
+	if workerRoleGroup.HostNetwork == nil || *workerRoleGroup.HostNetwork || *instance.Spec.Worker.RoleConfig.HostNetwork {
 		workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.container.hostname=${ALLUXIO_WORKER_CONTAINER_HOSTNAME}")
 	}
 
-	if roleGroup.Resources != nil && roleGroup.Resources.Requests != nil && roleGroup.Resources.Requests.Memory() != nil {
-		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.ramdisk.size=%s", roleGroup.Resources.Requests.Memory().String()))
+	if workerRoleGroup.Resources != nil && workerRoleGroup.Resources.Requests != nil && workerRoleGroup.Resources.Requests.Memory() != nil {
+		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.ramdisk.size=%s", workerRoleGroup.Resources.Requests.Memory().String()))
 	} else if instance.Spec.Worker.RoleConfig.Resources != nil && instance.Spec.Worker.RoleConfig.Resources.Requests != nil && instance.Spec.Worker.RoleConfig.Resources.Requests.Memory() != nil {
 		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.ramdisk.size=%s", instance.Spec.Worker.RoleConfig.Resources.Requests.Memory().String()))
 	}
 
-	if instance.Spec.ClusterConfig.ShortCircuit != nil {
+	if instance.Spec.ClusterConfig.TieredStore != nil {
 		workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.tieredstore.levels=%d", len(instance.Spec.ClusterConfig.TieredStore)))
 
 		for _, tier := range instance.Spec.ClusterConfig.TieredStore {
@@ -321,14 +323,14 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 				workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("%s.dirs.quota=%s", tierName, tier.Quota))
 			}
 
-			workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("%s.watermark.high.ratio=%s", tierName, tier.High))
+			workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("%s.watermark.high.ratio=%.2f", tierName, tier.High))
 
-			workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("%s.watermark.low.ratio=%s", tierName, tier.Low))
+			workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("%s.watermark.low.ratio=%.2f", tierName, tier.Low))
 		}
 	}
 
-	if roleGroup.Properties != nil {
-		for key, value := range roleGroup.Properties {
+	if workerRoleGroup.Properties != nil {
+		for key, value := range workerRoleGroup.Properties {
 			workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-D%s=%s", key, value))
 		}
 	} else if instance.Spec.Worker.RoleConfig.Properties != nil {
@@ -337,8 +339,8 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 		}
 	}
 
-	if roleGroup.JvmOptions != nil {
-		workerJavaOpts = append(workerJavaOpts, roleGroup.JvmOptions...)
+	if workerRoleGroup.JvmOptions != nil {
+		workerJavaOpts = append(workerJavaOpts, workerRoleGroup.JvmOptions...)
 	} else if instance.Spec.Worker.RoleConfig.JvmOptions != nil {
 		workerJavaOpts = append(workerJavaOpts, instance.Spec.Worker.RoleConfig.JvmOptions...)
 	}
@@ -348,18 +350,18 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 
 	jobWorkerJavaOpts = append(jobWorkerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")
 
-	if roleGroup.JobWorker.Ports != nil {
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.rpc.port=%d", roleGroup.JobWorker.Ports.Rpc))
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.data.port=%d", roleGroup.JobWorker.Ports.Data))
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.web.port=%d", roleGroup.JobWorker.Ports.Web))
+	if workerRoleGroup.JobWorker.Ports != nil {
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.rpc.port=%d", workerRoleGroup.JobWorker.Ports.Rpc))
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.data.port=%d", workerRoleGroup.JobWorker.Ports.Data))
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.web.port=%d", workerRoleGroup.JobWorker.Ports.Web))
 	} else if instance.Spec.Worker.RoleConfig.JobWorker.Ports != nil {
 		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.rpc.port=%d", instance.Spec.Worker.RoleConfig.JobWorker.Ports.Rpc))
 		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.data.port=%d", instance.Spec.Worker.RoleConfig.JobWorker.Ports.Data))
 		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.web.port=%d", instance.Spec.Worker.RoleConfig.JobWorker.Ports.Web))
 	}
 
-	if roleGroup.JobWorker.Properties != nil {
-		for key, value := range roleGroup.JobWorker.Properties {
+	if workerRoleGroup.JobWorker.Properties != nil {
+		for key, value := range workerRoleGroup.JobWorker.Properties {
 			jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-D%s=%s", key, value))
 		}
 	} else if instance.Spec.Worker.RoleConfig.JobWorker.Properties != nil {
@@ -368,8 +370,8 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 		}
 	}
 
-	if roleGroup.JobWorker.JvmOptions != nil {
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, roleGroup.JobWorker.JvmOptions...)
+	if workerRoleGroup.JobWorker.JvmOptions != nil {
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, workerRoleGroup.JobWorker.JvmOptions...)
 	} else if instance.Spec.Worker.RoleConfig.JobWorker.JvmOptions != nil {
 		jobWorkerJavaOpts = append(jobWorkerJavaOpts, instance.Spec.Worker.RoleConfig.JobWorker.JvmOptions...)
 	}
@@ -384,7 +386,7 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.GetNameWithSuffix("config"),
+			Name:      instance.GetNameWithSuffix("config" + "-" + mgn),
 			Namespace: instance.Namespace,
 			Labels:    instance.GetLabels(),
 		},
@@ -398,20 +400,40 @@ func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio, maste
 	return cm, nil
 }
 
+func (r *AlluxioReconciler) makeConfigMap(instance *stackv1alpha1.Alluxio) []*corev1.ConfigMap {
+	var configMaps []*corev1.ConfigMap
+
+	if instance.Spec.Master.RoleGroups != nil {
+		for masterRoleGroupName, masterRoleGroup := range instance.Spec.Master.RoleGroups {
+			if instance.Spec.Worker.RoleConfig != nil {
+				for workerRoleGroupName, workerRoleGroup := range instance.Spec.Worker.RoleGroups {
+					configMap, err := r.makeConfigMapForRoleGroup(instance, masterRoleGroupName, workerRoleGroupName, masterRoleGroup, workerRoleGroup)
+					if err != nil {
+						r.Log.Error(err, "Failed to create configMap for role group", "roleGroupName", masterRoleGroupName+"-"+workerRoleGroupName)
+						continue
+					}
+					configMaps = append(configMaps, configMap)
+				}
+			}
+
+		}
+	}
+	return configMaps
+}
+
 func (r *AlluxioReconciler) reconcileConfigMap(ctx context.Context, instance *stackv1alpha1.Alluxio) error {
 
-	var masterRoleGroup *stackv1alpha1.RoleGroupMasterSpec
-	var workerRoleGroup *stackv1alpha1.RoleGroupWorkerSpec
-	configMap, err := r.makeConfigMap(instance, masterRoleGroup, workerRoleGroup)
-	if err != nil {
-		return err
-	}
+	configMap := r.makeConfigMap(instance)
+	for _, cm := range configMap {
+		if cm == nil {
+			continue
+		}
 
-	if err := CreateOrUpdate(ctx, r.Client, configMap); err != nil {
-		r.Log.Error(err, "Failed to create or update configMap", "configMap", configMap.Name)
-		return err
+		if err := CreateOrUpdate(ctx, r.Client, cm); err != nil {
+			r.Log.Error(err, "Failed to create or update configMap", "configMap", cm.Name)
+			return err
+		}
 	}
-
 	return nil
 }
 
