@@ -2,8 +2,6 @@ module github.com/zncdata-labs/alluxio-operator
 
 go 1.21
 
-toolchain go1.21.1
-
 require (
 	github.com/cisco-open/k8s-objectmatcher v1.9.0
 	github.com/go-logr/logr v1.3.0
