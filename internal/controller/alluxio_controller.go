@@ -18,25 +18,33 @@ package controller
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
-
+	"github.com/go-logr/logr"
+	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	"github.com/zncdata-labs/operator-go/pkg/status"
+	utils "github.com/zncdata-labs/operator-go/pkg/util"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 )
 
 // AlluxioReconciler reconciles a Alluxio object
 type AlluxioReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 //+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -48,35 +56,146 @@ type AlluxioReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *AlluxioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
 
-	instance := &stackv1alpha1.Alluxio{}
-	err := r.Get(ctx, types.NamespacedName{Name: "alluxio-master", Namespace: req.Namespace}, instance)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "unable to fetch Master StatefulSet")
+	r.Log.Info("Reconciling Alluxio")
+
+	alluxio := &stackv1alpha1.Alluxio{}
+
+	if err := r.Get(ctx, req.NamespacedName, alluxio); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			r.Log.Error(err, "unable to fetch Alluxio")
+			return ctrl.Result{}, err
+		}
+		r.Log.Error(err, "Alluxio resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileMasterStatefulSet(ctx, instance, r.Scheme); err != nil {
-		logger.Error(err, "unable to reconcile Master StatefulSet")
+	// Get the status condition, if it exists and its generation is not the
+	// same as the Alluxio's, then we need to update the status condition
+
+	readCondition := apimeta.FindStatusCondition(alluxio.Status.Conditions, status.ConditionTypeProgressing)
+	if readCondition == nil || readCondition.ObservedGeneration != alluxio.GetGeneration() {
+		alluxio.InitStatusConditions()
+
+		if err := utils.UpdateStatus(ctx, r.Client, alluxio); err != nil {
+			r.Log.Error(err, "unable to update Alluxio status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	r.Log.Info("Alluxio found", "Name", alluxio.Name)
+
+	if err := r.reconcileMasterStatefulSet(ctx, alluxio); err != nil {
+		r.Log.Error(err, "unable to reconcile Master StatefulSet")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileMasterService(ctx, instance, r.Scheme); err != nil {
-		logger.Error(err, "unable to reconcile Master Service")
+	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
+		Type:               status.ConditionTypeReconcileStatefulSet,
+		Status:             metav1.ConditionTrue,
+		Reason:             status.ConditionReasonRunning,
+		Message:            "alluxio's statefulSet is running",
+		ObservedGeneration: alluxio.GetGeneration(),
+	}); updated {
+		err := utils.UpdateStatus(ctx, r.Client, alluxio)
+		if err != nil {
+			r.Log.Error(err, "unable to update status for StatefulSet")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.reconcileWorkerDeployment(ctx, alluxio); err != nil {
+		r.Log.Error(err, "unable to reconcile Worker Deployment")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileWorkerDaemonSet(ctx, instance, r.Scheme); err != nil {
-		logger.Error(err, "unable to reconcile Worker StatefulSet")
+	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
+		Type:               status.ConditionTypeReconcileDeployment,
+		Status:             metav1.ConditionTrue,
+		Reason:             status.ConditionReasonRunning,
+		Message:            "alluxio's deployment is running",
+		ObservedGeneration: alluxio.GetGeneration(),
+	}); updated {
+		err := utils.UpdateStatus(ctx, r.Client, alluxio)
+		if err != nil {
+			r.Log.Error(err, "unable to update status for Deployment")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.reconcileService(ctx, alluxio); err != nil {
+		r.Log.Error(err, "unable to reconcile Master Service")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileWorkerService(ctx, instance, r.Scheme); err != nil {
-		logger.Error(err, "unable to reconcile Worker Service")
+	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
+		Type:               status.ConditionTypeReconcileService,
+		Status:             metav1.ConditionTrue,
+		Reason:             status.ConditionReasonRunning,
+		Message:            "alluxio's service is running",
+		ObservedGeneration: alluxio.GetGeneration(),
+	}); updated {
+		err := utils.UpdateStatus(ctx, r.Client, alluxio)
+		if err != nil {
+			r.Log.Error(err, "unable to update status for Service")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.reconcileConfigMap(ctx, alluxio); err != nil {
+		r.Log.Error(err, "unable to reconcile ConfigMap")
 		return ctrl.Result{}, err
 	}
 
+	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
+		Type:               status.ConditionTypeReconcileConfigMap,
+		Status:             metav1.ConditionTrue,
+		Reason:             status.ConditionReasonRunning,
+		Message:            "alluxio's service is running",
+		ObservedGeneration: alluxio.GetGeneration(),
+	}); updated {
+		err := utils.UpdateStatus(ctx, r.Client, alluxio)
+		if err != nil {
+			r.Log.Error(err, "unable to update status for ConfigMap")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.reconcilePVC(ctx, alluxio); err != nil {
+		r.Log.Error(err, "unable to reconcile PVC")
+		return ctrl.Result{}, err
+	}
+
+	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
+		Type:               status.ConditionTypeReconcilePVC,
+		Status:             metav1.ConditionTrue,
+		Reason:             status.ConditionReasonRunning,
+		Message:            "alluxio's service is running",
+		ObservedGeneration: alluxio.GetGeneration(),
+	}); updated {
+		err := utils.UpdateStatus(ctx, r.Client, alluxio)
+		if err != nil {
+			r.Log.Error(err, "unable to update status for PVC")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if !alluxio.Status.IsAvailable() {
+		alluxio.SetStatusCondition(metav1.Condition{
+			Type:               status.ConditionTypeAvailable,
+			Status:             metav1.ConditionTrue,
+			Reason:             status.ConditionReasonRunning,
+			Message:            "alluxio is running",
+			ObservedGeneration: alluxio.GetGeneration(),
+		})
+
+		if err := utils.UpdateStatus(ctx, r.Client, alluxio); err != nil {
+			r.Log.Error(err, "unable to update alluxio status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	r.Log.Info("Successfully reconciled alluxio")
 	return ctrl.Result{}, nil
 }
 
