@@ -1,4 +1,4 @@
-package controller
+package worker
 
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
@@ -6,17 +6,17 @@ import (
 	"strings"
 )
 
-func volumeSourceFromTieredStore(tieredStore stackv1alpha1.TieredStore, mediumType string, index int) corev1.Volume {
+func VolumeSourceFromTieredStore(tieredStore stackv1alpha1.TieredStore, mediumType string, index int) corev1.Volume {
 	volumeName := strings.ToLower(mediumType)
 	var volumeSource corev1.VolumeSource
 
 	switch tieredStore.Type {
 	case "hostPath":
-		volumeSource = hostPathVolumeSource(tieredStore.Path)
+		volumeSource = HostPathVolumeSource(tieredStore.Path)
 	case "persistentVolumeClaim":
-		volumeSource = pvcVolumeSource(tieredStore.MediumType)
+		volumeSource = PvcVolumeSource(tieredStore.MediumType)
 	case "emptyDir":
-		volumeSource = emptyDirVolumeSource(tieredStore.Quota)
+		volumeSource = EmptyDirVolumeSource(tieredStore.Quota)
 	default:
 		panic("Unknown volume type")
 	}
@@ -27,13 +27,13 @@ func volumeSourceFromTieredStore(tieredStore stackv1alpha1.TieredStore, mediumTy
 	}
 }
 
-func makeTieredStoreVolumes(instance *stackv1alpha1.Alluxio) []corev1.Volume {
+func MakeTieredStoreVolumes(instance *stackv1alpha1.Alluxio) []corev1.Volume {
 	var volumes []corev1.Volume
 
 	for _, tieredStore := range instance.Spec.ClusterConfig.TieredStore {
 		mediumTypes := strings.Split(tieredStore.MediumType, ",")
 		for j, mediumType := range mediumTypes {
-			volume := volumeSourceFromTieredStore(*tieredStore, mediumType, j)
+			volume := VolumeSourceFromTieredStore(*tieredStore, mediumType, j)
 			volumes = append(volumes, volume)
 		}
 	}
@@ -41,7 +41,7 @@ func makeTieredStoreVolumes(instance *stackv1alpha1.Alluxio) []corev1.Volume {
 	return volumes
 }
 
-func makeTieredStoreVolumeMounts(instance *stackv1alpha1.Alluxio) []corev1.VolumeMount {
+func MakeTieredStoreVolumeMounts(instance *stackv1alpha1.Alluxio) []corev1.VolumeMount {
 	var mounts []corev1.VolumeMount
 	for _, tieredStore := range instance.Spec.ClusterConfig.TieredStore {
 		mount := corev1.VolumeMount{

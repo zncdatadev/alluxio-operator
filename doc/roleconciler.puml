@@ -1,0 +1,54 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+interface RoleReconciler {
+    +reconcile(role: Role): void
+}
+
+class RoleMaster implements RoleReconciler {
+    +reconcile(role: Role): void
+}
+
+class RoleWorker implements RoleReconciler {
+    +reconcile(role: Role): void
+}
+
+interface ResourceReconciler {
+    +reconcile(resource: Resource): void
+}
+
+interface CRUDReconciler {
+    +create(resource: Resource): void
+    +get(resource: Resource): void
+    +update(resource: Resource): void
+    +delete(resource: Resource): void
+}
+
+abstract class AbstractResourceReconciler implements ResourceReconciler, CRUDReconciler {
+    instance: Object
+    client client.Client
+    schema *runtime.Scheme
+
+    +reconcile(resource: Resource): void
+
+    #mergeLabels(): void
+    #build(): void
+    #setReference(): void
+}
+
+class MasterStatefulSet extends AbstractResourceReconciler {
+    #getResource(): Object
+}
+
+class MasterService extends AbstractResourceReconciler {
+    #getResource(): Object
+}
+
+class MasterPvc extends AbstractResourceReconciler  {
+    #getResource(): Object
+}
+
+class WorkerDaemonSet extends AbstractResourceReconciler {
+    #getResource(): Object
+}
+@enduml
