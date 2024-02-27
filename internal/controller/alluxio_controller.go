@@ -23,7 +23,6 @@ import (
 	"github.com/zncdata-labs/operator-go/pkg/status"
 	utils "github.com/zncdata-labs/operator-go/pkg/util"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,118 +84,14 @@ func (r *AlluxioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	r.Log.Info("Alluxio found", "Name", alluxio.Name)
 
-	if err := r.reconcileMasterStatefulSet(ctx, alluxio); err != nil {
-		r.Log.Error(err, "unable to reconcile Master StatefulSet")
+	// Reconcile the Alluxio cluster
+	clusterReconciler := NewClusterReconciler(r.Client, r.Scheme, alluxio)
+	result, err := clusterReconciler.ReconcileCluster(ctx)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
-		Type:               status.ConditionTypeReconcileStatefulSet,
-		Status:             metav1.ConditionTrue,
-		Reason:             status.ConditionReasonRunning,
-		Message:            "alluxio's statefulSet is running",
-		ObservedGeneration: alluxio.GetGeneration(),
-	}); updated {
-		err := utils.UpdateStatus(ctx, r.Client, alluxio)
-		if err != nil {
-			r.Log.Error(err, "unable to update status for StatefulSet")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if err := r.reconcileWorkerDeployment(ctx, alluxio); err != nil {
-		r.Log.Error(err, "unable to reconcile Worker Deployment")
-		return ctrl.Result{}, err
-	}
-
-	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
-		Type:               status.ConditionTypeReconcileDeployment,
-		Status:             metav1.ConditionTrue,
-		Reason:             status.ConditionReasonRunning,
-		Message:            "alluxio's deployment is running",
-		ObservedGeneration: alluxio.GetGeneration(),
-	}); updated {
-		err := utils.UpdateStatus(ctx, r.Client, alluxio)
-		if err != nil {
-			r.Log.Error(err, "unable to update status for Deployment")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if err := r.reconcileService(ctx, alluxio); err != nil {
-		r.Log.Error(err, "unable to reconcile Master Service")
-		return ctrl.Result{}, err
-	}
-
-	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
-		Type:               status.ConditionTypeReconcileService,
-		Status:             metav1.ConditionTrue,
-		Reason:             status.ConditionReasonRunning,
-		Message:            "alluxio's service is running",
-		ObservedGeneration: alluxio.GetGeneration(),
-	}); updated {
-		err := utils.UpdateStatus(ctx, r.Client, alluxio)
-		if err != nil {
-			r.Log.Error(err, "unable to update status for Service")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if err := r.reconcileConfigMap(ctx, alluxio); err != nil {
-		r.Log.Error(err, "unable to reconcile ConfigMap")
-		return ctrl.Result{}, err
-	}
-
-	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
-		Type:               status.ConditionTypeReconcileConfigMap,
-		Status:             metav1.ConditionTrue,
-		Reason:             status.ConditionReasonRunning,
-		Message:            "alluxio's service is running",
-		ObservedGeneration: alluxio.GetGeneration(),
-	}); updated {
-		err := utils.UpdateStatus(ctx, r.Client, alluxio)
-		if err != nil {
-			r.Log.Error(err, "unable to update status for ConfigMap")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if err := r.reconcilePVC(ctx, alluxio); err != nil {
-		r.Log.Error(err, "unable to reconcile PVC")
-		return ctrl.Result{}, err
-	}
-
-	if updated := alluxio.Status.SetStatusCondition(metav1.Condition{
-		Type:               status.ConditionTypeReconcilePVC,
-		Status:             metav1.ConditionTrue,
-		Reason:             status.ConditionReasonRunning,
-		Message:            "alluxio's service is running",
-		ObservedGeneration: alluxio.GetGeneration(),
-	}); updated {
-		err := utils.UpdateStatus(ctx, r.Client, alluxio)
-		if err != nil {
-			r.Log.Error(err, "unable to update status for PVC")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if !alluxio.Status.IsAvailable() {
-		alluxio.SetStatusCondition(metav1.Condition{
-			Type:               status.ConditionTypeAvailable,
-			Status:             metav1.ConditionTrue,
-			Reason:             status.ConditionReasonRunning,
-			Message:            "alluxio is running",
-			ObservedGeneration: alluxio.GetGeneration(),
-		})
-
-		if err := utils.UpdateStatus(ctx, r.Client, alluxio); err != nil {
-			r.Log.Error(err, "unable to update alluxio status")
-			return ctrl.Result{}, err
-		}
-	}
-
 	r.Log.Info("Successfully reconciled alluxio")
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
