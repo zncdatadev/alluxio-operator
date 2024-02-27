@@ -40,81 +40,21 @@ func (d *DeploymentReconciler) GetConditions() *[]metav1.Condition {
 }
 
 func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
-	var envVars []corev1.EnvVar
-	var envFrom []corev1.EnvFromSource
-	var shortCircuitEnabled bool
-	var needDomainSocketVolume bool
 
-	roleGroupName := data.GroupName
+	groupName := data.GroupName
 	mergedGroupCfg := d.MergedCfg
 	mergedConfigSpec := mergedGroupCfg.Config
 	instance := d.Instance
 
-	if instance.Spec.ClusterConfig != nil && instance.Spec.ClusterConfig.GetShortCircuit().Enabled {
-		shortCircuitEnabled = true
-	}
-
-	if shortCircuitEnabled && instance.Spec.ClusterConfig.GetShortCircuit().Policy == "uuid" {
-		needDomainSocketVolume = true
-	}
-
-	envVars = append(envVars, corev1.EnvVar{
-		Name: "ALLUXIO_WORKER_HOSTNAME",
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				FieldPath: "status.hostIP",
-			},
-		},
-	})
-
-	envFrom = append(envFrom, corev1.EnvFromSource{
-		ConfigMapRef: &corev1.ConfigMapEnvSource{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: common.CreateMasterConfigMapName(instance.GetName(), roleGroupName),
-			},
-		},
-	})
-
-	roleGroup := instance.Spec.Worker.RoleGroups[roleGroupName]
-
-	if instance != nil && instance.Spec.Worker != nil {
-		envVarsMap := make(map[string]string)
-
-		if roleGroup != nil && roleGroup.Config.EnvVars != nil {
-			for key, value := range roleGroup.Config.EnvVars {
-				envVarsMap[key] = value
-			}
-		}
-
-		for key, value := range envVarsMap {
-			envVars = append(envVars, corev1.EnvVar{
-				Name:  key,
-				Value: value,
-			})
-		}
-	}
-
-	if roleGroup != nil && roleGroup.Config.HostNetwork != nil && !*roleGroup.Config.HostNetwork {
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "ALLUXIO_WORKER_CONTAINER_HOSTNAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		})
-	}
-	volumes := MakeTieredStoreVolumes(instance)
-
-	volumeMounts := MakeTieredStoreVolumeMounts(instance)
-	if needDomainSocketVolume {
-		volumes = append(MakeShortCircuitVolumes(instance, roleGroupName), volumes...)
-		volumeMounts = append(MakeShortCircuitVolumeMounts(), volumeMounts...)
-	}
+	isShortCircuitEnabled := d.isShortCircuitEnabled()
+	needDomainSocketVolume := d.isNeedDomainSocketVolume(isShortCircuitEnabled)
+	envVars := d.createEnvVars(instance, d.MergedCfg)
+	envFrom := d.createEnvFrom(groupName)
+	volumes, volumeMounts := d.createVolumeMounts(needDomainSocketVolume, groupName, instance)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      createDeploymentName(instance.GetName(), d.RoleName, roleGroupName),
+			Name:      createDeploymentName(instance.GetName(), d.RoleName, groupName),
 			Namespace: instance.Namespace,
 			Labels:    d.MergedLabels,
 		},
@@ -198,25 +138,22 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 // schedulePod is used to schedule pod, such as affinity, tolerations, nodeSelector
 func (d *DeploymentReconciler) schedulePod(obj *appsv1.Deployment) {
 	mergedGroupCfg := d.MergedCfg
-	mergedConfigSpec := mergedGroupCfg.Config
-	if mergedGroupCfg != nil {
-		if mergedConfigSpec.Affinity != nil {
-			obj.Spec.Template.Spec.Affinity = mergedConfigSpec.Affinity
+	if mergedGroupCfg != nil && mergedGroupCfg.Config != nil {
+		if affinity := mergedGroupCfg.Config.Affinity; affinity != nil {
+			obj.Spec.Template.Spec.Affinity = affinity
 		}
-
-		if mergedConfigSpec.Tolerations != nil {
-			obj.Spec.Template.Spec.Tolerations = mergedConfigSpec.Tolerations
+		if toleration := mergedGroupCfg.Config.Tolerations; toleration != nil {
+			obj.Spec.Template.Spec.Tolerations = toleration
 		}
-
-		if mergedConfigSpec.NodeSelector != nil {
-			obj.Spec.Template.Spec.NodeSelector = mergedConfigSpec.NodeSelector
+		if nodeSelector := mergedGroupCfg.Config.NodeSelector; nodeSelector != nil {
+			obj.Spec.Template.Spec.NodeSelector = nodeSelector
 		}
 	}
 }
 
-// commandOverride only deployment and statefulset need to implement this method
+// CommandOverride commandOverride only deployment and statefulset need to implement this method
 // todo: set the same command for all containers currently
-func (d *DeploymentReconciler) commandOverride(obj client.Object) {
+func (d *DeploymentReconciler) CommandOverride(obj client.Object) {
 	statefulSet := obj.(*appsv1.StatefulSet)
 	containers := statefulSet.Spec.Template.Spec.Containers
 	if cmdOverride := d.MergedCfg.CommandArgsOverrides; cmdOverride != nil {
@@ -237,4 +174,84 @@ func (d *DeploymentReconciler) EnvOverride(obj client.Object) {
 			common.OverrideEnvVars(envVars, d.MergedCfg.EnvOverrides)
 		}
 	}
+}
+
+// is short circuit enabled
+func (d *DeploymentReconciler) isShortCircuitEnabled() bool {
+	return d.Instance.Spec.ClusterConfig != nil && d.Instance.Spec.ClusterConfig.GetShortCircuit().Enabled
+}
+
+// is need domain socket volume
+func (d *DeploymentReconciler) isNeedDomainSocketVolume(isShortCircuitEnabled bool) bool {
+	return isShortCircuitEnabled && d.Instance.Spec.ClusterConfig.GetShortCircuit().Policy == "uuid"
+}
+
+// create env form
+func (d *DeploymentReconciler) createEnvFrom(groupName string) []corev1.EnvFromSource {
+	var envFrom []corev1.EnvFromSource
+	envFrom = append(envFrom, corev1.EnvFromSource{
+		ConfigMapRef: &corev1.ConfigMapEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: common.CreateMasterConfigMapName(d.Instance.GetName(), groupName),
+			},
+		},
+	})
+	return envFrom
+}
+
+// create env vars
+func (d *DeploymentReconciler) createEnvVars(
+	instance *stackv1alpha1.Alluxio,
+	mergedGroupCfg *stackv1alpha1.WorkerRoleGroupSpec) []corev1.EnvVar {
+	var envVars []corev1.EnvVar
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "ALLUXIO_WORKER_HOSTNAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "status.hostIP",
+			},
+		},
+	})
+
+	if instance != nil && instance.Spec.Worker != nil {
+		envVarsMap := make(map[string]string)
+
+		if mergedGroupCfg != nil && mergedGroupCfg.Config.EnvVars != nil {
+			for key, value := range mergedGroupCfg.Config.EnvVars {
+				envVarsMap[key] = value
+			}
+		}
+
+		for key, value := range envVarsMap {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  key,
+				Value: value,
+			})
+		}
+	}
+
+	if mergedGroupCfg != nil && mergedGroupCfg.Config.HostNetwork != nil && !*mergedGroupCfg.Config.HostNetwork {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "ALLUXIO_WORKER_CONTAINER_HOSTNAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		})
+	}
+	return envVars
+}
+
+// create volumes and volume mounts
+func (d *DeploymentReconciler) createVolumeMounts(
+	needDomainSocketVolume bool,
+	groupName string, instance *stackv1alpha1.Alluxio) ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes := MakeTieredStoreVolumes(instance)
+	volumeMounts := MakeTieredStoreVolumeMounts(instance)
+	if needDomainSocketVolume {
+		volumes = append(MakeShortCircuitVolumes(instance, groupName), volumes...)
+		volumeMounts = append(MakeShortCircuitVolumeMounts(), volumeMounts...)
+	}
+	return volumes, volumeMounts
 }

@@ -15,12 +15,39 @@ import (
 )
 
 type IReconciler interface {
-	ReconcileResource(ctx context.Context, groupName string, do IDoReconciler) (ctrl.Result, error)
+	ReconcileResource(ctx context.Context, groupName string, do ResourceHandler) (ctrl.Result, error)
 }
 
-type IDoReconciler interface {
+type ResourceBuilder interface {
 	Build(data ResourceBuilderData) (client.Object, error)
-	DoReconcile(ctx context.Context, resource client.Object) (ctrl.Result, error)
+}
+
+type ResourceHandler interface {
+	DoReconcile(ctx context.Context, resource client.Object, instance ResourceHandler) (ctrl.Result, error)
+}
+
+type ResourceBaseHandler interface {
+	ResourceBuilder
+	ResourceHandler
+}
+
+type ConditionsGetter interface {
+	GetConditions() *[]metav1.Condition
+}
+
+type WorkloadOverride interface {
+	CommandOverride(resource client.Object)
+	EnvOverride(resource client.Object)
+}
+
+type WorkLoadInstanceType interface {
+	ConditionsGetter
+	WorkloadOverride
+}
+
+type ResourceInstanceType interface {
+	WorkLoadInstanceType
+	ResourceHandler
 }
 
 type BaseResourceReconciler[T client.Object, G any] struct {
@@ -66,12 +93,15 @@ func NewResourceBuilderData(labels map[string]string, groupName string,
 	}
 }
 
-func (b *BaseResourceReconciler[T, G]) ReconcileResource(ctx context.Context, groupName string, do IDoReconciler) (ctrl.Result, error) {
+func (b *BaseResourceReconciler[T, G]) ReconcileResource(
+	ctx context.Context,
+	groupName string,
+	resInstance ResourceBuilder) (ctrl.Result, error) {
 	// 1. mergelables
 	// 2. build resource
 	// 3. setControllerReference
 	data := NewResourceBuilderData(b.MergedLabels, groupName, b.MergedCfg)
-	resource, err := do.Build(data)
+	resource, err := resInstance.Build(data)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else {
@@ -79,12 +109,12 @@ func (b *BaseResourceReconciler[T, G]) ReconcileResource(ctx context.Context, gr
 			return ctrl.Result{}, err
 		}
 	}
-	//do reconcile
+	//resInstance reconcile
 	//return b.DoReconcile(ctx, resource)
-	if i, ok := do.(IDoReconciler); ok {
-		return i.DoReconcile(ctx, resource)
+	if handler, ok := resInstance.(ResourceHandler); ok {
+		return handler.DoReconcile(ctx, resource, handler)
 	} else {
-		return ctrl.Result{}, nil
+		panic("resource is not ResourceHandler")
 	}
 }
 
@@ -96,7 +126,7 @@ func (b *BaseResourceReconciler[T, G]) setControllerReference(resource client.Ob
 	return nil
 }
 
-func (b *BaseResourceReconciler[T, G]) apply(ctx context.Context, dep client.Object) (ctrl.Result, error) {
+func (b *BaseResourceReconciler[T, G]) Apply(ctx context.Context, dep client.Object) (ctrl.Result, error) {
 	if err := ctrl.SetControllerReference(b.Instance, dep, b.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -135,11 +165,12 @@ func NewGeneraResourceStyleReconciler[T client.Object, G any](
 	}
 }
 
-// override doReconcile method
 func (s *GeneralResourceStyleReconciler[T, G]) DoReconcile(
 	ctx context.Context,
-	resource client.Object) (ctrl.Result, error) {
-	return s.apply(ctx, resource)
+	resource client.Object,
+	_ ResourceHandler,
+) (ctrl.Result, error) {
+	return s.Apply(ctx, resource)
 }
 
 // DeploymentStyleReconciler deployment style reconciler
@@ -175,16 +206,23 @@ func NewDeploymentStyleReconciler[T client.Object, G any](
 	}
 }
 
-func (s *DeploymentStyleReconciler[T, G]) DoReconcile(ctx context.Context, resource client.Object) (ctrl.Result, error) {
+func (s *DeploymentStyleReconciler[T, G]) DoReconcile(
+	ctx context.Context,
+	resource client.Object,
+	instance ResourceHandler,
+) (ctrl.Result, error) {
 	// apply resource
 	// check if the resource is satisfied
 	// if not, return requeue
 	// if satisfied, return nil
+	if override, ok := instance.(WorkloadOverride); ok {
+		override.CommandOverride(resource)
+		override.EnvOverride(resource)
+	} else {
+		panic("resource is not WorkloadOverride")
+	}
 
-	s.CommandOverride(resource)
-	s.EnvOverride(resource)
-
-	if res, err := s.apply(ctx, resource); err != nil {
+	if res, err := s.Apply(ctx, resource); err != nil {
 		return ctrl.Result{}, err
 	} else if res.RequeueAfter > 0 {
 		return res, nil
@@ -201,6 +239,7 @@ func (s *DeploymentStyleReconciler[T, G]) DoReconcile(ctx context.Context, resou
 			metav1.ConditionTrue,
 			"DeploymentSatisfied",
 			"Deployment is satisfied",
+			instance,
 		)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -213,20 +252,12 @@ func (s *DeploymentStyleReconciler[T, G]) DoReconcile(ctx context.Context, resou
 		metav1.ConditionFalse,
 		"DeploymentNotSatisfied",
 		"Deployment is not satisfied",
+		instance,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: time.Second * 10}, nil
-}
-
-type ConditonsGetter interface {
-	GetConditions() *[]metav1.Condition
-}
-
-type DeploymentStyleOverride interface {
-	CommandOverride(resource client.Object)
-	EnvOverride(resource client.Object)
 }
 
 func (s *DeploymentStyleReconciler[T, G]) CheckPodsSatisfied(ctx context.Context) (bool, error) {
@@ -246,16 +277,21 @@ func (s *DeploymentStyleReconciler[T, G]) CheckPodsSatisfied(ctx context.Context
 func (s *DeploymentStyleReconciler[T, G]) updateStatus(
 	status metav1.ConditionStatus,
 	reason string,
-	message string) error {
-	apimeta.SetStatusCondition(s.GetConditions(), metav1.Condition{
-		Type:               opgostatus.ConditionTypeAvailable,
-		Status:             status,
-		Reason:             reason,
-		Message:            message,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: s.Instance.GetGeneration(),
-	})
-	return s.Client.Status().Update(context.Background(), s.Instance)
+	message string,
+	instance ResourceHandler) error {
+	if conditionHandler, ok := instance.(ConditionsGetter); ok {
+		apimeta.SetStatusCondition(conditionHandler.GetConditions(), metav1.Condition{
+			Type:               opgostatus.ConditionTypeAvailable,
+			Status:             status,
+			Reason:             reason,
+			Message:            message,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: s.Instance.GetGeneration(),
+		})
+		return s.Client.Status().Update(context.Background(), s.Instance)
+	} else {
+		panic("instance is not ConditionsGetter")
+	}
 }
 
 func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
@@ -263,7 +299,13 @@ func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *core
 		return nil
 	}
 	return &corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{corev1.ResourceCPU: *resources.CPU.Max, corev1.ResourceMemory: *resources.Memory.Limit},
-		Requests: corev1.ResourceList{corev1.ResourceCPU: *resources.CPU.Min, corev1.ResourceMemory: *resources.Memory.Limit},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    *resources.CPU.Max,
+			corev1.ResourceMemory: *resources.Memory.Limit,
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resources.CPU.Min,
+			corev1.ResourceMemory: *resources.Memory.Limit,
+		},
 	}
 }

@@ -38,7 +38,7 @@ func NewRoleMaster(
 }
 
 func (r *RoleMaster) RoleName() string {
-	return string(role.RoleMaster)
+	return string(role.Master)
 }
 
 func (r *RoleMaster) MergeLabels() map[string]string {
@@ -58,7 +58,7 @@ func (r *RoleMaster) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 			r.Labels,
 			r.RoleName(),
 			r.Role.Config.PodDisruptionBudget)
-		res, err := pdb.ReconcileResource(ctx, "", &pdb.BaseResourceReconciler)
+		res, err := pdb.ReconcileResource(ctx, "", pdb)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -120,42 +120,37 @@ func (m *RoleMasterGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	mergedCfgObj := m.MergeGroupConfigSpec()
 	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.MasterRoleGroupSpec)
 	// cache it
-	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.RoleMaster), m.GroupName),
+	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.Master), m.GroupName),
 		mergedGroupCfg)
 
 	mergedLabels := m.MergeLabels(mergedGroupCfg)
-
+	//pdb
 	if mergedGroupCfg.Config != nil && mergedGroupCfg.Config.PodDisruptionBudget != nil {
-		res, err := common.NewReconcilePDB(
-			m.Client,
-			m.Scheme,
-			m.Instance,
-			mergedLabels,
-			m.GroupName,
-			nil).ReconcileResource(ctx, m.GroupName)
-		if err != nil {
+		pdb := common.NewReconcilePDB(m.Client, m.Scheme, m.Instance, mergedLabels, m.GroupName, nil)
+		if resource, err := pdb.ReconcileResource(ctx, m.GroupName, pdb); err != nil {
 			m.Log.Error(err, "Reconcile pdb of Master-role failed", "groupName", m.GroupName)
 			return ctrl.Result{}, err
-		}
-		if res.RequeueAfter > 0 {
-			return res, nil
+		} else {
+			if resource.RequeueAfter > 0 {
+				return resource, nil
+			}
 		}
 	}
-
+	// configmap
 	configmap := NewConfigMap(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
-	if _, err := configmap.ReconcileResource(ctx, m.GroupName); err != nil {
+	if _, err := configmap.ReconcileResource(ctx, m.GroupName, configmap); err != nil {
 		m.Log.Error(err, "Reconcile configmap of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
-
+	// statefulSet
 	statefulSet := NewStatefulSet(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
-	if _, err := statefulSet.ReconcileResource(ctx, m.GroupName); err != nil {
+	if _, err := statefulSet.ReconcileResource(ctx, m.GroupName, statefulSet); err != nil {
 		m.Log.Error(err, "Reconcile statefulSet of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
-
+	// service
 	svc := NewService(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
-	if _, err := svc.ReconcileResource(ctx, m.GroupName); err != nil {
+	if _, err := svc.ReconcileResource(ctx, m.GroupName, svc); err != nil {
 		m.Log.Error(err, "Reconcile service of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}

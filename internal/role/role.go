@@ -13,8 +13,8 @@ import (
 type Role string
 
 const (
-	RoleMaster Role = "master"
-	RoleWorker Role = "worker"
+	Master Role = "master"
+	Worker Role = "worker"
 )
 
 type RoleReconciler interface {

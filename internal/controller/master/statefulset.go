@@ -135,21 +135,15 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 // schedulePod is used to schedule pod, such as affinity, tolerations, nodeSelector
 func (s *StatefulSetReconciler) schedulePod(obj *appsv1.StatefulSet) {
 	mergedGroupCfg := s.MergedCfg
-	if mergedGroupCfg == nil {
-		return
-	}
-	mergedConfigSpec := mergedGroupCfg.Config
-	if mergedGroupCfg != nil {
-		if mergedConfigSpec.Affinity != nil {
-			obj.Spec.Template.Spec.Affinity = mergedConfigSpec.Affinity
+	if mergedGroupCfg != nil && mergedGroupCfg.Config != nil {
+		if affinity := mergedGroupCfg.Config.Affinity; affinity != nil {
+			obj.Spec.Template.Spec.Affinity = affinity
 		}
-
-		if mergedConfigSpec.Tolerations != nil {
-			obj.Spec.Template.Spec.Tolerations = mergedConfigSpec.Tolerations
+		if toleration := mergedGroupCfg.Config.Tolerations; toleration != nil {
+			obj.Spec.Template.Spec.Tolerations = toleration
 		}
-
-		if mergedConfigSpec.NodeSelector != nil {
-			obj.Spec.Template.Spec.NodeSelector = mergedConfigSpec.NodeSelector
+		if nodeSelector := mergedGroupCfg.Config.NodeSelector; nodeSelector != nil {
+			obj.Spec.Template.Spec.NodeSelector = nodeSelector
 		}
 	}
 }

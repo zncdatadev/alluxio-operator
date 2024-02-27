@@ -41,7 +41,7 @@ func NewRoleWorker(
 }
 
 func (r *RoleWorker) RoleName() string {
-	return string(role.RoleWorker)
+	return string(role.Worker)
 }
 
 func (r *RoleWorker) MergeLabels() map[string]string {
@@ -53,18 +53,16 @@ func (r *RoleWorker) MergeLabels() map[string]string {
 }
 
 func (r *RoleWorker) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
-	if r.EnabledClusterConfig() {
-		// todo reconcile cluster config
-	}
-
+	// role pdb
 	if r.Role.Config != nil && r.Role.Config.PodDisruptionBudget != nil {
-		res, err := common.NewReconcilePDB(
+		pdb := common.NewReconcilePDB(
 			r.Client,
 			r.Scheme,
 			r.Instance,
 			r.Labels,
 			r.RoleName(),
-			r.Role.Config.PodDisruptionBudget).ReconcileResource(ctx, "")
+			r.Role.Config.PodDisruptionBudget)
+		res, err := pdb.ReconcileResource(ctx, "", pdb)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -123,18 +121,19 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	mergedCfgObj := m.MergeGroupConfigSpec()
 	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.WorkerRoleGroupSpec)
 	// cache it
-	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.RoleWorker), m.GroupName),
+	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.Worker), m.GroupName),
 		mergedGroupCfg)
 	mergedLabels := m.MergeLabels(mergedGroupCfg)
 
 	if mergedGroupCfg.Config != nil && mergedGroupCfg.Config.PodDisruptionBudget != nil {
-		res, err := common.NewReconcilePDB(
+		pdb := common.NewReconcilePDB(
 			m.Client,
 			m.Scheme,
 			m.Instance,
 			mergedLabels,
 			m.GroupName,
-			nil).ReconcileResource(ctx, m.GroupName)
+			nil)
+		res, err := pdb.ReconcileResource(ctx, "", pdb)
 		if err != nil {
 			m.Log.Error(err, "Reconcile pdb of Worker-role failed", "groupName", m.GroupName)
 			return ctrl.Result{}, err
@@ -145,17 +144,16 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	}
 
 	pvc := NewPvc(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
-	if _, err := pvc.ReconcileResource(ctx, m.GroupName); err != nil {
+	if _, err := pvc.ReconcileResource(ctx, m.GroupName, pvc); err != nil {
 		m.Log.Error(err, "Reconcile pvc of Worker-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
 
 	deployment := NewDeployment(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
-	if _, err := deployment.ReconcileResource(ctx, m.GroupName); err != nil {
+	if _, err := deployment.ReconcileResource(ctx, m.GroupName, deployment); err != nil {
 		m.Log.Error(err, "Reconcile deployment of Worker-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
-
 	return ctrl.Result{}, nil
 }
 

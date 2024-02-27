@@ -35,8 +35,8 @@ func NewClusterReconciler(client client.Client, scheme *runtime.Scheme, cr *stac
 }
 
 func (c *ClusterReconciler) ReconcileCluster(ctx context.Context) (ctrl.Result, error) {
-	RegisterRole(role.RoleMaster, master.NewRoleMaster(c.scheme, c.cr, c.client, c.Log))
-	RegisterRole(role.RoleWorker, worker.NewRoleWorker(c.scheme, c.cr, c.client, c.Log))
+	RegisterRole(role.Master, master.NewRoleMaster(c.scheme, c.cr, c.client, c.Log))
+	RegisterRole(role.Worker, worker.NewRoleWorker(c.scheme, c.cr, c.client, c.Log))
 
 	for _, r := range roles {
 		res, err := r.ReconcileRole(ctx)

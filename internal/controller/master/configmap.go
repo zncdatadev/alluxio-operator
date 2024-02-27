@@ -40,7 +40,7 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	instance := s.Instance
 	groupName := data.GroupName
 	masterRoleGroup := s.MergedCfg
-	workerCacheKey := createMasterGroupCacheKey(instance.GetName(), string(role.RoleWorker), data.GroupName)
+	workerCacheKey := createMasterGroupCacheKey(instance.GetName(), string(role.Worker), data.GroupName)
 	workerRoleGroupObj, ok := common.MergedCache.Get(workerCacheKey)
 	if !ok {
 		return nil, fmt.Errorf("worker cache not found, key: %s", workerCacheKey)
