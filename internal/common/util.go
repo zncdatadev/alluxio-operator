@@ -119,10 +119,10 @@ func (r *ResourceNameGenerator) GenerateResourceName(extraSuffix string) string 
 		res = res + r.RoleName + "-"
 	}
 	if r.GroupName != "" {
-		res = res + r.GroupName + "-"
+		res = res + r.GroupName
 	}
 	if extraSuffix != "" {
-		return res + extraSuffix
+		return res + "-" + extraSuffix
 	}
 	return res
 }

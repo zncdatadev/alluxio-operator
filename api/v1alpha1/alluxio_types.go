@@ -26,17 +26,17 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 var (
-	MasterEmbedded    = 19200
-	MasterRpcPort     = 19998
-	MasterWebPort     = 19999
-	JobMasterRpcPort  = 20001
-	JobMasterWebPort  = 20002
-	JobMasterEmbedded = 20003
-	WorkerRpcPort     = 29999
-	WorkerWebPort     = 30000
-	JobWorkerRpcPort  = 30001
-	JobWorkerDataPort = 30002
-	JobWorkerWebPort  = 30003
+	MasterEmbedded    int32 = 19200
+	MasterRpcPort     int32 = 19998
+	MasterWebPort     int32 = 19999
+	JobMasterRpcPort  int32 = 20001
+	JobMasterWebPort  int32 = 20002
+	JobMasterEmbedded int32 = 20003
+	WorkerRpcPort     int32 = 29999
+	WorkerWebPort     int32 = 30000
+	JobWorkerRpcPort  int32 = 30001
+	JobWorkerDataPort int32 = 30002
+	JobWorkerWebPort  int32 = 30003
 )
 
 //+kubebuilder:object:root=true
@@ -64,6 +64,9 @@ type AlluxioList struct {
 type AlluxioSpec struct {
 	// +kubebuilder:validation:Required
 	ClusterConfig *ClusterConfigSpec `json:"clusterConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Image *ImageSpec `json:"image,omitempty"`
 
 	// +kubebuilder:validation:Required
 	Master *MasterSpec `json:"master,omitempty"`
@@ -155,7 +158,7 @@ type JobMasterSpec struct {
 	Properties map[string]string `json:"properties,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources *ResourcesSpec `json:"resources,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	Ports *JobMasterPortsSpec `json:"ports,omitempty"`
@@ -186,7 +189,7 @@ type JobWorkerSpec struct {
 	Properties map[string]string `json:"properties,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources *ResourcesSpec `json:"resources,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	Ports *JobWorkerPortsSpec `json:"ports,omitempty"`

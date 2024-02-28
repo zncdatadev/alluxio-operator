@@ -77,8 +77,7 @@ type ConfigOverridesSpec struct {
 	OverrideConfig map[string]string `json:"hive-site.xml,omitempty"`
 }
 type BaseConfigSpec struct {
-	// +kubebuilder:validation:Optional
-	Image *ImageSpec `json:"image,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	Resources *ResourcesSpec `json:"resources,omitempty"`
 	// +kubebuilder:validation:Optional

@@ -9,11 +9,11 @@ metadata:
     app.kubernetes.io/created-by: alluxio-operator
   name: alluxio-sample
 spec:
+  image:
+    repository: alluxio/alluxio
+    tag: 2.9.3
+    pullPolicy: IfNotPresent
   clusterConfig:
-    image:
-      pullPolicy: IfNotPresent
-      repository: alluxio/alluxio
-      tag: 2.9.3
     tieredStore:
       - alias: MEM
         high: 0.95
@@ -24,51 +24,40 @@ spec:
         quota: 500Mi
         type: emptyDir
   master:
-    roleConfig:
+    config:
+      args:
+        - master-only
+        - --no-format
       resources:
-        limits:
-          cpu: 200m
-          memory: 1Gi
-        requests:
-          cpu: 100m
-          memory: 512Mi
+        memory:
+          limit: 1Gi
+        cpu:
+          max: 100m
       jobMaster:
         args:
           - job-master
     roleGroups:
       default:
         replicas: 1
-        matchLabels:
-          app: master
-      large:
-        replicas: 1
-        matchLabels:
-          app: large-master
+        config:
+          matchLabels:
+            app: master
   worker:
-    roleConfig:
+    config:
+      args:
+        - worker-only
+        - --no-format
       resources:
-        limits:
-          cpu: 200m
-          memory: 1Gi
-        requests:
-          cpu: 100m
-          memory: 512M
+        memory:
+          limit: 1Gi
+        cpu:
+          max: 100m
       jobWorker:
         args:
           - job-worker
     roleGroups:
       default:
         replicas: 1
-        matchLabels:
-          app: worker
-      large:
-        replicas: 1
-        matchLabels:
-          app: large-worker
-        resources:
-          limits:
-            cpu: 300m
-            memory: 2Gi
-          requests:
-            cpu: 200m
-            memory: 1Gi
+        config:
+          matchLabels:
+            app: worker

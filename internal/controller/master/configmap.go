@@ -46,25 +46,75 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 		return nil, fmt.Errorf("worker cache not found, key: %s", workerCacheKey)
 	}
 	workerRoleGroup := workerRoleGroupObj.(*stackv1alpha1.WorkerRoleGroupSpec)
-
 	journal := instance.Spec.ClusterConfig.GetJournal()
 	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 
-	var MasterCount int32
-	var isSingleMaster, isHaEmbedded bool
+	//get master count, isSingleMaster, isHaEmbedded
+	//create ALLUXIO_JAVA_OPTS, ALLUXIO_MASTER_JAVA_OPTS, ALLUXIO_JOB_MASTER_JAVA_OPTS, ALLUXIO_WORKER_JAVA_OPTS, ALLUXIO_JOB_WORKER_JAVA_OPTS
+	masterCount := s.countMasterAmount(masterRoleGroup)
+	isSingleMaster := s.isSingleMaster(masterCount)
+	isHaEmbedded := s.isHaEmbedded(&journal, masterCount)
+	alluxioJavaOpts := s.createAlluxioJavaOpts(instance, groupName, masterCount, isSingleMaster, isHaEmbedded, &journal)
+	masterJavaOpts := s.createMasterJavaOpts(masterRoleGroup)
+	jobMasterJavaOpts := s.createJobMasterJavaOpts(masterRoleGroup)
+	workerJavaOpts := s.createWorkerJavaOpts(workerRoleGroup, &shortCircuit, instance)
+	jobWorkerJavaOpts := s.createJobWorkerJavaOpts(workerRoleGroup)
 
+	//create cmData
+	cmData := map[string]string{
+		"ALLUXIO_JAVA_OPTS":            alluxioJavaOpts,
+		"ALLUXIO_MASTER_JAVA_OPTS":     masterJavaOpts,
+		"ALLUXIO_JOB_MASTER_JAVA_OPTS": jobMasterJavaOpts,
+		"ALLUXIO_WORKER_JAVA_OPTS":     workerJavaOpts,
+		"ALLUXIO_JOB_WORKER_JAVA_OPTS": jobWorkerJavaOpts,
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.CreateMasterConfigMapName(instance.Name, groupName),
+			Namespace: instance.Namespace,
+			Labels:    instance.GetLabels(),
+		},
+		Data: cmData,
+	}
+	return cm, nil
+}
+
+func (s *ConfigMapReconciler) ConfigOverride(origin map[string]string) {
+	cfg := s.MergedCfg
+	overrideCfg := cfg.ConfigOverrides
+	// if origin exists key of overrideCfg, then override it
+	for key, value := range overrideCfg.OverrideConfig {
+		origin[key] = value
+	}
+}
+
+// count master amount
+func (s *ConfigMapReconciler) countMasterAmount(masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec) int32 {
 	if masterRoleGroup != nil && masterRoleGroup.Replicas != 0 {
-		MasterCount = masterRoleGroup.Replicas
+		return masterRoleGroup.Replicas
 	}
+	panic("masterRoleGroup cfg is nil")
+}
 
-	isSingleMaster = MasterCount == 1
+// is single master
+func (s *ConfigMapReconciler) isSingleMaster(masterCount int32) bool {
+	return masterCount == 1
+}
 
-	if journal.Type == "EMBEDDED" && MasterCount > 1 {
-		isHaEmbedded = true
-	} else {
-		isHaEmbedded = false
-	}
+// is ha embedded
+func (s *ConfigMapReconciler) isHaEmbedded(journal *stackv1alpha1.JournalSpec, masterCount int32) bool {
+	return journal.Type == "EMBEDDED" && masterCount > 1
+}
 
+// create ALLUXIO_JAVA_OPTS
+func (s *ConfigMapReconciler) createAlluxioJavaOpts(
+	instance *stackv1alpha1.Alluxio,
+	groupName string,
+	MasterCount int32,
+	isSingleMaster bool,
+	isHaEmbedded bool,
+	journal *stackv1alpha1.JournalSpec,
+) string {
 	// ALLUXIO_JAVA_OPTS
 	alluxioJavaOpts := make([]string, 0)
 
@@ -97,8 +147,13 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	if instance.Spec.ClusterConfig.JvmOptions != nil {
 		alluxioJavaOpts = append(alluxioJavaOpts, instance.Spec.ClusterConfig.JvmOptions...)
 	}
+	return strings.Join(alluxioJavaOpts, " ")
+}
 
-	// ALLUXIO_MASTER_JAVA_OPTS
+// create ALLUXIO_MASTER_JAVA_OPTS
+func (s *ConfigMapReconciler) createMasterJavaOpts(
+	masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec,
+) string {
 	masterJavaOpts := make([]string, 0)
 	masterJavaOpts = append(masterJavaOpts, "-Dalluxio.master.hostname=${ALLUXIO_MASTER_HOSTNAME}")
 
@@ -111,8 +166,13 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	if masterRoleGroup != nil && masterRoleGroup.Config.JvmOptions != nil {
 		masterJavaOpts = append(masterJavaOpts, masterRoleGroup.Config.JvmOptions...)
 	}
+	return strings.Join(masterJavaOpts, " ")
+}
 
-	// ALLUXIO_JOB_MASTER_JAVA_OPTS
+// create ALLUXIO_JOB_MASTER_JAVA_OPTS
+func (s *ConfigMapReconciler) createJobMasterJavaOpts(
+	masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec,
+) string {
 	jobMasterJavaOpts := make([]string, 0)
 	jobMasterJavaOpts = append(jobMasterJavaOpts, "-Dalluxio.job.master.hostname=${ALLUXIO_JOB_MASTER_HOSTNAME}")
 
@@ -125,13 +185,22 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	if masterRoleGroup != nil && masterRoleGroup.Config.JobMaster.JvmOptions != nil {
 		jobMasterJavaOpts = append(jobMasterJavaOpts, masterRoleGroup.Config.JobMaster.JvmOptions...)
 	}
+	return strings.Join(jobMasterJavaOpts, " ")
+}
 
-	// ALLUXIO_WORKER_JAVA_OPTS
+// create ALLUXIO_WORKER_JAVA_OPTS
+func (s *ConfigMapReconciler) createWorkerJavaOpts(
+	workerRoleGroup *stackv1alpha1.WorkerRoleGroupSpec,
+	shortCircuit *stackv1alpha1.ShortCircuitSpec,
+	instance *stackv1alpha1.Alluxio,
+) string {
 	workerJavaOpts := make([]string, 0)
 	workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")
 
-	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.rpc.port=%d", workerRoleGroup.Config.Ports.Rpc))
-	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.web.port=%d", workerRoleGroup.Config.Ports.Web))
+	workerPort := common.GetWorkerPorts(workerRoleGroup)
+
+	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.rpc.port=%d", workerPort.Rpc))
+	workerJavaOpts = append(workerJavaOpts, fmt.Sprintf("-Dalluxio.worker.web.port=%d", workerPort.Web))
 
 	if !shortCircuit.Enabled {
 		workerJavaOpts = append(workerJavaOpts, "-Dalluxio.user.short.circuit.enabled=false")
@@ -185,16 +254,21 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	if workerRoleGroup.Config.JvmOptions != nil {
 		workerJavaOpts = append(workerJavaOpts, workerRoleGroup.Config.JvmOptions...)
 	}
+	return strings.Join(workerJavaOpts, " ")
+}
 
-	// ALLUXIO_JOB_WORKER_JAVA_OPTS
+// create ALLUXIO_JOB_WORKER_JAVA_OPTS
+func (s *ConfigMapReconciler) createJobWorkerJavaOpts(
+	workerRoleGroup *stackv1alpha1.WorkerRoleGroupSpec,
+) string {
 	jobWorkerJavaOpts := make([]string, 0)
 
 	jobWorkerJavaOpts = append(jobWorkerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")
-
-	if workerRoleGroup.Config.JobWorker.Ports != nil {
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.rpc.port=%d", workerRoleGroup.Config.JobWorker.Ports.Rpc))
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.data.port=%d", workerRoleGroup.Config.JobWorker.Ports.Data))
-		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.web.port=%d", workerRoleGroup.Config.JobWorker.Ports.Web))
+	jobWorkerPort := common.GetJobWorkerPorts(workerRoleGroup)
+	if jobWorkerPort != nil {
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.rpc.port=%d", jobWorkerPort.Rpc))
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.data.port=%d", jobWorkerPort.Data))
+		jobWorkerJavaOpts = append(jobWorkerJavaOpts, fmt.Sprintf("-Dalluxio.job.worker.web.port=%d", jobWorkerPort.Web))
 	}
 
 	if workerRoleGroup.Config.JobWorker.Properties != nil {
@@ -206,32 +280,5 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	if workerRoleGroup.Config.JobWorker.JvmOptions != nil {
 		jobWorkerJavaOpts = append(jobWorkerJavaOpts, workerRoleGroup.Config.JobWorker.JvmOptions...)
 	}
-
-	cmData := map[string]string{
-		"ALLUXIO_JAVA_OPTS":            strings.Join(alluxioJavaOpts, " "),
-		"ALLUXIO_MASTER_JAVA_OPTS":     strings.Join(masterJavaOpts, " "),
-		"ALLUXIO_JOB_MASTER_JAVA_OPTS": strings.Join(jobMasterJavaOpts, " "),
-		"ALLUXIO_WORKER_JAVA_OPTS":     strings.Join(workerJavaOpts, " "),
-		"ALLUXIO_JOB_WORKER_JAVA_OPTS": strings.Join(jobWorkerJavaOpts, " "),
-	}
-
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.CreateMasterConfigMapName(instance.Name, groupName),
-			Namespace: instance.Namespace,
-			Labels:    instance.GetLabels(),
-		},
-		Data: cmData,
-	}
-
-	return cm, nil
-}
-
-func (s *ConfigMapReconciler) ConfigOverride(origin map[string]string) {
-	cfg := s.MergedCfg
-	overrideCfg := cfg.ConfigOverrides
-	// if origin exists key of overrideCfg, then override it
-	for key, value := range overrideCfg.OverrideConfig {
-		origin[key] = value
-	}
+	return strings.Join(jobWorkerJavaOpts, " ")
 }

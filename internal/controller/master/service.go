@@ -38,6 +38,8 @@ func (s *ServiceReconciler) Build(data common.ResourceBuilderData) (client.Objec
 	mergedGroupCfg := s.MergedCfg
 	roleGroupName := data.GroupName
 	roleName := s.RoleName
+	masterPorts := getMasterPorts(mergedGroupCfg)
+	jobMasterPorts := getJobMasterPorts(mergedGroupCfg)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      createMasterSvcName(instance.Name, roleGroupName, roleName, "0"),
@@ -48,27 +50,27 @@ func (s *ServiceReconciler) Build(data common.ResourceBuilderData) (client.Objec
 			Ports: []corev1.ServicePort{
 				{
 					Name: "rpc",
-					Port: mergedGroupCfg.Config.Ports.Rpc,
+					Port: masterPorts.Rpc,
 				},
 				{
 					Name: "web",
-					Port: mergedGroupCfg.Config.Ports.Web,
+					Port: masterPorts.Web,
 				},
 				{
 					Name: "embedded",
-					Port: mergedGroupCfg.Config.Ports.Embedded,
+					Port: masterPorts.Embedded,
 				},
 				{
 					Name: "job-rpc",
-					Port: mergedGroupCfg.Config.JobMaster.Ports.Rpc,
+					Port: jobMasterPorts.Rpc,
 				},
 				{
 					Name: "job-web",
-					Port: mergedGroupCfg.Config.JobMaster.Ports.Web,
+					Port: jobMasterPorts.Web,
 				},
 				{
 					Name: "job-embedded",
-					Port: mergedGroupCfg.Config.JobMaster.Ports.Embedded,
+					Port: jobMasterPorts.Embedded,
 				},
 			},
 			Selector:  s.MergedLabels,

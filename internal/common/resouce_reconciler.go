@@ -6,6 +6,7 @@ import (
 	opgostatus "github.com/zncdata-labs/operator-go/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -279,17 +280,63 @@ func (s *DeploymentStyleReconciler[T, G]) updateStatus(
 }
 
 func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
-	if resources == nil {
-		return nil
+	var (
+		cpuMin      = resource.MustParse("100m")
+		cpuMax      = resource.MustParse("500")
+		memoryLimit = resource.MustParse("1Gi")
+	)
+	if resources != nil {
+		if resources.CPU != nil && resources.CPU.Min != nil {
+			cpuMin = *resources.CPU.Min
+		}
+		if resources.CPU != nil && resources.CPU.Max != nil {
+			cpuMax = *resources.CPU.Max
+		}
+		if resources.Memory != nil && resources.Memory.Limit != nil {
+			memoryLimit = *resources.Memory.Limit
+		}
 	}
 	return &corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    *resources.CPU.Max,
-			corev1.ResourceMemory: *resources.Memory.Limit,
+			corev1.ResourceCPU:    cpuMax,
+			corev1.ResourceMemory: memoryLimit,
 		},
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    *resources.CPU.Min,
-			corev1.ResourceMemory: *resources.Memory.Limit,
+			corev1.ResourceCPU:    cpuMin,
+			corev1.ResourceMemory: memoryLimit,
 		},
 	}
+}
+
+// GetWorkerPorts get worker ports
+func GetWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.WorkerPortsSpec {
+	workerPorts := workerCfg.Config.Ports
+	if workerPorts == nil {
+		workerPorts = &stackv1alpha1.WorkerPortsSpec{
+			Web: stackv1alpha1.WorkerWebPort,
+			Rpc: stackv1alpha1.WorkerRpcPort,
+		}
+	}
+	return workerPorts
+}
+
+// GetJobWorkerPorts get job worker ports
+func GetJobWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.JobWorkerPortsSpec {
+	jobWorkerPorts := workerCfg.Config.JobWorker.Ports
+	if jobWorkerPorts == nil {
+		jobWorkerPorts = &stackv1alpha1.JobWorkerPortsSpec{
+			Web:  stackv1alpha1.JobWorkerWebPort,
+			Rpc:  stackv1alpha1.JobWorkerRpcPort,
+			Data: stackv1alpha1.JobWorkerDataPort,
+		}
+	}
+	return jobWorkerPorts
+}
+
+func GetJournal(cluster *stackv1alpha1.ClusterConfigSpec) *stackv1alpha1.JournalSpec {
+	if cluster.Journal == nil {
+		defaultJournal := cluster.GetJournal()
+		return &defaultJournal
+	}
+	return cluster.Journal
 }

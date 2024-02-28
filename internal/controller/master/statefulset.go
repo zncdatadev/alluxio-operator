@@ -75,7 +75,8 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 	isSingleMaster := isSingleMaster(mergedGroupCfg)
 	needJournalVolume := needJournalVolume(isUfsLocal, isEmbedded)
 	isHaEmbedded := isHaEmbedded(isEmbedded, mergedGroupCfg.Replicas)
-
+	image := instance.Spec.Image
+	journal := common.GetJournal(instance.Spec.ClusterConfig)
 	app := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      createMasterStatefulSetName(s.Instance.GetName(), s.RoleName, data.GroupName),
@@ -100,32 +101,32 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 					Containers: []corev1.Container{
 						{
 							Name:            instance.GetNameWithSuffix("master"),
-							Image:           mergedConfigSpec.Image.Repository + ":" + mergedConfigSpec.Image.Tag,
-							ImagePullPolicy: mergedConfigSpec.Image.PullPolicy,
+							Image:           image.Repository + ":" + image.Tag,
+							ImagePullPolicy: image.PullPolicy,
 							Env:             s.createEnvVars(isHaEmbedded, isSingleMaster, mergedGroupCfg),
 							EnvFrom:         createEnvFrom(instance, data.GroupName),
-							Ports:           createMasterPorts(*mergedConfigSpec, isHaEmbedded),
+							Ports:           createMasterPorts(mergedGroupCfg, isHaEmbedded),
 							Command:         []string{"tini", "--", "/entrypoint.sh"},
-							Args:            mergedConfigSpec.Args,
+							Args:            s.getMasterCmdArgs(mergedGroupCfg),
 							Resources:       *common.ConvertToResourceRequirements(mergedConfigSpec.Resources),
-							VolumeMounts:    createVolumeMount(needJournalVolume, instance.Spec.ClusterConfig.Journal),
+							VolumeMounts:    createVolumeMount(needJournalVolume, journal),
 						},
 						{
 							Name:            instance.GetNameWithSuffix("job-master"),
-							Image:           mergedConfigSpec.Image.Repository + ":" + mergedConfigSpec.Image.Tag,
-							ImagePullPolicy: mergedConfigSpec.Image.PullPolicy,
+							Image:           image.Repository + ":" + image.Tag,
+							ImagePullPolicy: image.PullPolicy,
 							Env:             s.createEnvVars(isHaEmbedded, isSingleMaster, mergedGroupCfg),
 							EnvFrom:         createEnvFrom(instance, data.GroupName),
-							Ports:           createJobMasterPorts(*mergedConfigSpec, isHaEmbedded),
+							Ports:           createJobMasterPorts(mergedGroupCfg, isHaEmbedded),
 							Command:         []string{"tini", "--", "/entrypoint.sh"},
-							Args:            mergedConfigSpec.JobMaster.Args,
-							Resources:       *mergedConfigSpec.JobMaster.Resources,
+							Args:            s.getJobMasterCmdArgs(mergedGroupCfg),
+							Resources:       *common.ConvertToResourceRequirements(mergedConfigSpec.JobMaster.Resources),
 						},
 					},
-					Volumes: createVolumes(needJournalVolume, instance.Spec.ClusterConfig.Journal),
+					Volumes: createVolumes(needJournalVolume, journal),
 				},
 			},
-			VolumeClaimTemplates: createVolumeClaimTemplates(needJournalVolume, instance.Spec.ClusterConfig.Journal),
+			VolumeClaimTemplates: createVolumeClaimTemplates(needJournalVolume, journal),
 		},
 	}
 	s.schedulePod(app)
@@ -146,6 +147,22 @@ func (s *StatefulSetReconciler) schedulePod(obj *appsv1.StatefulSet) {
 			obj.Spec.Template.Spec.NodeSelector = nodeSelector
 		}
 	}
+}
+
+func (s *StatefulSetReconciler) getMasterCmdArgs(cfg *stackv1alpha1.MasterRoleGroupSpec) []string {
+	args := cfg.Config.Args
+	if len(args) == 0 {
+		return []string{"master-only", "--no-format"}
+	}
+	return args
+}
+
+func (s *StatefulSetReconciler) getJobMasterCmdArgs(cfg *stackv1alpha1.MasterRoleGroupSpec) []string {
+	args := cfg.Config.JobMaster.Args
+	if len(args) == 0 {
+		return []string{"job-master"}
+	}
+	return args
 }
 
 // isUfsLocal is UFS local based on Journal's type and UfsType
@@ -289,8 +306,8 @@ func createEnvFrom(instance *stackv1alpha1.Alluxio, groupName string) []corev1.E
 }
 
 // create master ports
-func createMasterPorts(mergedConfigSpec stackv1alpha1.MasterConfigSpec, isHaEmbedded bool) []corev1.ContainerPort {
-	materPort := mergedConfigSpec.Ports
+func createMasterPorts(mergedConfigSpec *stackv1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
+	materPort := getMasterPorts(mergedConfigSpec)
 	masterPorts := []corev1.ContainerPort{
 		{
 			Name:          "web",
@@ -311,8 +328,8 @@ func createMasterPorts(mergedConfigSpec stackv1alpha1.MasterConfigSpec, isHaEmbe
 }
 
 // create job master ports
-func createJobMasterPorts(mergedConfigSpec stackv1alpha1.MasterConfigSpec, isHaEmbedded bool) []corev1.ContainerPort {
-	jobMasterPort := mergedConfigSpec.JobMaster.Ports
+func createJobMasterPorts(mergedConfigSpec *stackv1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
+	jobMasterPort := getJobMasterPorts(mergedConfigSpec)
 	jobMasterPorts := []corev1.ContainerPort{
 		{
 			Name:          "job-web",

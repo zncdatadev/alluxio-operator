@@ -51,6 +51,11 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 	envVars := d.createEnvVars(instance, d.MergedCfg)
 	envFrom := d.createEnvFrom(groupName)
 	volumes, volumeMounts := d.createVolumeMounts(needDomainSocketVolume, groupName, instance)
+	image := instance.Spec.Image
+
+	//todo: webhook opt
+	workerPorts := common.GetWorkerPorts(mergedGroupCfg)
+	jobWorkerPorts := common.GetJobWorkerPorts(mergedGroupCfg)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -76,18 +81,18 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 					Containers: []corev1.Container{
 						{
 							Name:            instance.GetNameWithSuffix("worker"),
-							Image:           mergedConfigSpec.Image.Repository + ":" + mergedConfigSpec.Image.Tag,
-							ImagePullPolicy: mergedConfigSpec.Image.PullPolicy,
+							Image:           image.Repository + ":" + image.Tag,
+							ImagePullPolicy: image.PullPolicy,
 							Env:             envVars,
 							EnvFrom:         envFrom,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "web",
-									ContainerPort: mergedConfigSpec.Ports.Web,
+									ContainerPort: workerPorts.Web,
 								},
 								{
 									Name:          "rpc",
-									ContainerPort: mergedConfigSpec.Ports.Rpc,
+									ContainerPort: workerPorts.Rpc,
 								},
 							},
 
@@ -98,27 +103,27 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 						},
 						{
 							Name:            instance.GetNameWithSuffix("job-worker"),
-							Image:           mergedConfigSpec.Image.Repository + ":" + mergedConfigSpec.Image.Tag,
-							ImagePullPolicy: mergedConfigSpec.Image.PullPolicy,
+							Image:           image.Repository + ":" + image.Tag,
+							ImagePullPolicy: image.PullPolicy,
 							Env:             envVars,
 							EnvFrom:         envFrom,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "job-rpc",
-									ContainerPort: mergedConfigSpec.JobWorker.Ports.Rpc,
+									ContainerPort: jobWorkerPorts.Rpc,
 								},
 								{
 									Name:          "job-data",
-									ContainerPort: mergedConfigSpec.JobWorker.Ports.Data,
+									ContainerPort: jobWorkerPorts.Data,
 								},
 								{
 									Name:          "job-web",
-									ContainerPort: mergedConfigSpec.JobWorker.Ports.Web,
+									ContainerPort: jobWorkerPorts.Web,
 								},
 							},
 							Command:      []string{"tini", "--", "/entrypoint.sh"},
 							Args:         mergedConfigSpec.JobWorker.Args,
-							Resources:    *mergedConfigSpec.JobWorker.Resources,
+							Resources:    *common.ConvertToResourceRequirements(mergedConfigSpec.JobWorker.Resources),
 							VolumeMounts: volumeMounts,
 						},
 					},
@@ -154,8 +159,8 @@ func (d *DeploymentReconciler) schedulePod(obj *appsv1.Deployment) {
 // CommandOverride commandOverride only deployment and statefulset need to implement this method
 // todo: set the same command for all containers currently
 func (d *DeploymentReconciler) CommandOverride(obj client.Object) {
-	statefulSet := obj.(*appsv1.StatefulSet)
-	containers := statefulSet.Spec.Template.Spec.Containers
+	dep := obj.(*appsv1.Deployment)
+	containers := dep.Spec.Template.Spec.Containers
 	if cmdOverride := d.MergedCfg.CommandArgsOverrides; cmdOverride != nil {
 		for i := range containers {
 			containers[i].Command = cmdOverride
@@ -166,8 +171,8 @@ func (d *DeploymentReconciler) CommandOverride(obj client.Object) {
 // EnvOverride only deployment and statefulset need to implement this method
 // todo: set the same env for all containers currently
 func (d *DeploymentReconciler) EnvOverride(obj client.Object) {
-	statefulSet := obj.(*appsv1.StatefulSet)
-	containers := statefulSet.Spec.Template.Spec.Containers
+	dep := obj.(*appsv1.Deployment)
+	containers := dep.Spec.Template.Spec.Containers
 	if envOverride := d.MergedCfg.EnvOverrides; envOverride != nil {
 		for i := range containers {
 			envVars := containers[i].Env
