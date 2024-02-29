@@ -24,12 +24,7 @@ jobs:
     - name: Install dependencies
       run: go get ./...
     - name: Test with Go
-      run: go test ./... -json > TestResults-${{ matrix.go-version }}.json
-    - name: Upload Go test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: Go-results-${{ matrix.go-version }}
-        path: TestResults-${{ matrix.go-version }}.json
+      run: make test
 
   golang-lint:
     name: Golang Lint
@@ -94,7 +89,7 @@ jobs:
 
   deploy-operator:
     name: Deploy operator
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'zncdata-labs'
+    if: github.event_name == 'push' && github.ref_type == 'tag' && github.repository_owner == 'zncdata-labs'
     runs-on: ubuntu-22.04
     needs:
     - golang-test
@@ -125,3 +120,4 @@ jobs:
       run: |
         make bundle
         make bundle-buildx
+
