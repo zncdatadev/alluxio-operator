@@ -42,9 +42,8 @@ type BaseRoleReconciler[R any] struct {
 }
 
 func (r *BaseRoleReconciler[R]) GetLabels(role Role) map[string]string {
-	var mergeLabels = make(map[string]string)
 	roleLables := common.RoleLabels{Cr: r.Instance, Name: string(role)}
-	mergeLabels = roleLables.GetLabels()
+	mergeLabels := roleLables.GetLabels()
 	return mergeLabels
 }
 
