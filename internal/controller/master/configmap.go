@@ -13,7 +13,7 @@ import (
 )
 
 type ConfigMapReconciler struct {
-	common.GeneralResourceStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.MasterRoleGroupSpec]
+	common.ConfigurationStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.MasterRoleGroupSpec]
 }
 
 // NewConfigMap new a ConfigMapReconcile
@@ -25,7 +25,7 @@ func NewConfigMap(
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 ) *ConfigMapReconciler {
 	return &ConfigMapReconciler{
-		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.Alluxio,
+		ConfigurationStyleReconciler: *common.NewConfigurationStyleReconciler[*stackv1alpha1.Alluxio,
 			*stackv1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
@@ -79,12 +79,21 @@ func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Obj
 	return cm, nil
 }
 
-func (s *ConfigMapReconciler) ConfigOverride(origin map[string]string) {
-	cfg := s.MergedCfg
-	overrideCfg := cfg.ConfigOverrides
-	// if origin exists key of overrideCfg, then override it
-	for key, value := range overrideCfg.OverrideConfig {
-		origin[key] = value
+func (s *ConfigMapReconciler) ConfigurationOverride(origin client.Object) {
+	if cm, ok := origin.(*corev1.ConfigMap); ok {
+		cfg := s.MergedCfg
+		overrideCfg := cfg.ConfigOverrides
+		if overrideCfg == nil {
+			return
+		}
+		data := cm.Data
+		// if origin exists key of overrideCfg, then override it
+		for key, value := range overrideCfg.OverrideConfig {
+			data[key] = value
+		}
+		cm.Data = data
+	} else {
+		panic("origin client.object is not ConfigMap")
 	}
 }
 
@@ -119,7 +128,7 @@ func (s *ConfigMapReconciler) createAlluxioJavaOpts(
 	alluxioJavaOpts := make([]string, 0)
 
 	if isSingleMaster {
-		name := fmt.Sprintf("-Dalluxio.master.hostname=%s", instance.GetNameWithSuffix("master-"+groupName+"-0"))
+		name := fmt.Sprintf("-Dalluxio.master.hostname=%s", createMasterStatefulSetName(instance.Name, string(role.Master), groupName)+"-0")
 		alluxioJavaOpts = append(alluxioJavaOpts, name)
 	}
 

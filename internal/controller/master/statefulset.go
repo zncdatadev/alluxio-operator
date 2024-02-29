@@ -3,6 +3,7 @@ package master
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
+	"github.com/zncdata-labs/alluxio-operator/internal/role"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -79,7 +80,7 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 	journal := common.GetJournal(instance.Spec.ClusterConfig)
 	app := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      createMasterStatefulSetName(s.Instance.GetName(), s.RoleName, data.GroupName),
+			Name:      createMasterStatefulSetName(s.Instance.GetName(), string(role.Master), data.GroupName),
 			Namespace: instance.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -237,7 +238,7 @@ func createVolumeClaimTemplates(needJournalVolume bool, journal *stackv1alpha1.J
 				Name: "alluxio-journal",
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: &journal.StorageClass,
+				StorageClassName: common.GetStorageClass(journal.StorageClass),
 				AccessModes:      []corev1.PersistentVolumeAccessMode{accessMode},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{

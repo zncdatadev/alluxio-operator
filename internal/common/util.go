@@ -109,17 +109,19 @@ func NewResourceNameGenerator(instanceName, roleName, groupName string) *Resourc
 	}
 }
 
-// GenerateResourceName generate resource name
+// GenerateResourceName generate resource Name
 func (r *ResourceNameGenerator) GenerateResourceName(extraSuffix string) string {
 	var res string
 	if r.InstanceName != "" {
 		res = r.InstanceName + "-"
 	}
-	if r.RoleName != "" {
-		res = res + r.RoleName + "-"
-	}
 	if r.GroupName != "" {
-		res = res + r.GroupName
+		res = res + r.GroupName + "-"
+	}
+	if r.RoleName != "" {
+		res = res + r.RoleName
+	} else {
+		res = res[:len(res)-1]
 	}
 	if extraSuffix != "" {
 		return res + "-" + extraSuffix
@@ -140,16 +142,22 @@ func (m *Map) MapMerge(source map[string]string, replace bool) {
 	}
 }
 
-// create configMap name
+// CreateMasterConfigMapName create configMap Name
 func CreateMasterConfigMapName(instanceName string, groupName string) string {
 	return NewResourceNameGenerator(instanceName, "", groupName).GenerateResourceName("config")
 }
 
 func OverrideEnvVars(origin []corev1.EnvVar, override map[string]string) {
 	for _, env := range origin {
-		// if env name is in override, then override it
+		// if env Name is in override, then override it
 		if value, ok := override[env.Name]; ok {
 			env.Value = value
 		}
 	}
+}
+func GetStorageClass(origin string) *string {
+	if origin == "" {
+		return nil
+	}
+	return &origin
 }

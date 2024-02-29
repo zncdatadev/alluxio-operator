@@ -37,31 +37,19 @@ func NewRoleMaster(
 	return r
 }
 
-func (r *RoleMaster) RoleName() string {
-	return string(role.Master)
+func (r *RoleMaster) RoleName() role.Role {
+	return role.Master
 }
 
 func (r *RoleMaster) MergeLabels() map[string]string {
-	instance := r.Instance
-	var mergeLabels = make(common.Map)
-	mergeLabels.MapMerge(instance.GetLabels(), true)
-	mergeLabels["app.kubernetes.io/component"] = strings.ToLower(r.RoleName())
-	return mergeLabels
+	return r.GetLabels(r.RoleName())
 }
 
 func (r *RoleMaster) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 	if r.Role.Config != nil && r.Role.Config.PodDisruptionBudget != nil {
-		pdb := common.NewReconcilePDB(
-			r.Client,
-			r.Scheme,
-			r.Instance,
-			r.Labels,
-			r.RoleName(),
+		pdb := common.NewReconcilePDB(r.Client, r.Scheme, r.Instance, r.Labels, string(r.RoleName()),
 			r.Role.Config.PodDisruptionBudget)
 		res, err := pdb.ReconcileResource(ctx, "", pdb)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 		if err != nil {
 			return ctrl.Result{}, err
 		}

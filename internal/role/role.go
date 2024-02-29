@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,7 +19,7 @@ const (
 )
 
 type RoleReconciler interface {
-	RoleName() string
+	RoleName() Role
 	MergeLabels() map[string]string
 	ReconcileRole(ctx context.Context) (ctrl.Result, error)
 }
@@ -38,6 +39,13 @@ type BaseRoleReconciler[R any] struct {
 	Log      logr.Logger
 	Labels   map[string]string
 	Role     R
+}
+
+func (r *BaseRoleReconciler[R]) GetLabels(role Role) map[string]string {
+	var mergeLabels = make(map[string]string)
+	roleLables := common.RoleLabels{Cr: r.Instance, Name: string(role)}
+	mergeLabels = roleLables.GetLabels()
+	return mergeLabels
 }
 
 func (r *BaseRoleReconciler[R]) EnabledClusterConfig() bool {

@@ -324,7 +324,7 @@ func (clusterConfig *ClusterConfigSpec) GetShortCircuit() ShortCircuitSpec {
 		VolumeType:   "persistentVolumeClaim",
 		Size:         "100Mi",
 		PvcName:      "alluxio-worker-domain-socket",
-		StorageClass: "local-path",
+		StorageClass: "standard",
 		AccessMode:   "ReadWriteOnce",
 		HosePath:     "/tmp/alluxio-domain",
 	}
@@ -337,7 +337,7 @@ func (clusterConfig *ClusterConfigSpec) GetJournal() JournalSpec {
 		UfsType:      "local",
 		VolumeType:   "persistentVolumeClaim",
 		Size:         "1Gi",
-		StorageClass: "local-path",
+		StorageClass: "standard",
 		AccessMode:   "ReadWriteOnce",
 		Medium:       "",
 		RunFormat:    false,

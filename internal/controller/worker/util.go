@@ -5,7 +5,7 @@ import (
 )
 
 func createDeploymentName(instanceName string, roleName string, groupName string) string {
-	return common.NewResourceNameGenerator(instanceName, roleName, groupName).GenerateResourceName("worker")
+	return common.NewResourceNameGenerator(instanceName, roleName, groupName).GenerateResourceName("")
 }
 
 func createMasterGroupCacheKey(instanceName string, roleName string, groupName string) string {

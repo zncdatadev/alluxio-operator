@@ -3,6 +3,7 @@ package worker
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
+	"github.com/zncdata-labs/alluxio-operator/internal/role"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +60,7 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      createDeploymentName(instance.GetName(), d.RoleName, groupName),
+			Name:      createDeploymentName(instance.GetName(), string(role.Worker), groupName),
 			Namespace: instance.Namespace,
 			Labels:    d.MergedLabels,
 		},
@@ -97,7 +98,7 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 							},
 
 							Command:      []string{"tini", "--", "/entrypoint.sh"},
-							Args:         mergedConfigSpec.Args,
+							Args:         d.getWorkerArgs(),
 							Resources:    *common.ConvertToResourceRequirements(mergedConfigSpec.Resources),
 							VolumeMounts: volumeMounts,
 						},
@@ -122,7 +123,7 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 								},
 							},
 							Command:      []string{"tini", "--", "/entrypoint.sh"},
-							Args:         mergedConfigSpec.JobWorker.Args,
+							Args:         d.getJobWorkerArgs(),
 							Resources:    *common.ConvertToResourceRequirements(mergedConfigSpec.JobWorker.Resources),
 							VolumeMounts: volumeMounts,
 						},
@@ -138,6 +139,24 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 	}
 	d.schedulePod(dep)
 	return dep, nil
+}
+
+// get worker args
+func (d *DeploymentReconciler) getWorkerArgs() []string {
+	args := d.MergedCfg.Config.Args
+	if len(args) == 0 {
+		return []string{"worker-only", "--no-format"}
+	}
+	return args
+}
+
+// get job worker args
+func (d *DeploymentReconciler) getJobWorkerArgs() []string {
+	args := d.MergedCfg.Config.JobWorker.Args
+	if len(args) == 0 {
+		return []string{"job-worker"}
+	}
+	return args
 }
 
 // schedulePod is used to schedule pod, such as affinity, tolerations, nodeSelector

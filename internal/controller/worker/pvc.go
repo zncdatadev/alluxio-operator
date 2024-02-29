@@ -45,7 +45,7 @@ func (s *PvcReconciler) Build(data common.ResourceBuilderData) (client.Object, e
 			Labels:    s.MergedLabels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: &shortCircuit.StorageClass,
+			StorageClassName: common.GetStorageClass(shortCircuit.StorageClass),
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(shortCircuit.AccessMode)},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{

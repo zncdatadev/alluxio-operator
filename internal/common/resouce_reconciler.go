@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
@@ -35,11 +34,14 @@ type WorkloadOverride interface {
 	EnvOverride(resource client.Object)
 }
 
+type ConfigurationOverride interface {
+	ConfigurationOverride(resource client.Object)
+}
+
 type BaseResourceReconciler[T client.Object, G any] struct {
 	Instance T
 	Scheme   *runtime.Scheme
 	Client   client.Client
-	RoleName string
 
 	MergedLabels map[string]string
 	MergedCfg    G
@@ -86,29 +88,17 @@ func (b *BaseResourceReconciler[T, G]) ReconcileResource(
 	// 2. build resource
 	// 3. setControllerReference
 	data := NewResourceBuilderData(b.MergedLabels, groupName, b.MergedCfg)
-	resource, err := resInstance.Build(data)
+	obj, err := resInstance.Build(data)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else {
-		if err := b.setControllerReference(resource); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 	//resInstance reconcile
 	//return b.DoReconcile(ctx, resource)
 	if handler, ok := resInstance.(ResourceHandler); ok {
-		return handler.DoReconcile(ctx, resource, handler)
+		return handler.DoReconcile(ctx, obj, handler)
 	} else {
 		panic("resource is not ResourceHandler")
 	}
-}
-
-func (b *BaseResourceReconciler[T, G]) setControllerReference(resource client.Object) error {
-	err := controllerutil.SetControllerReference(b.Instance, resource, b.Scheme)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (b *BaseResourceReconciler[T, G]) Apply(ctx context.Context, dep client.Object) (ctrl.Result, error) {
@@ -158,6 +148,47 @@ func (s *GeneralResourceStyleReconciler[T, G]) DoReconcile(
 	return s.Apply(ctx, resource)
 }
 
+// ConfigurationStyleReconciler configuration style reconciler
+// this reconciler is used to reconcile the configuration style resources
+// such as configMap, secret, etc.
+// it will do the following things:
+// 1. apply the resource
+// Additional:
+// 1. configuration override support
+type ConfigurationStyleReconciler[T client.Object, G any] struct {
+	GeneralResourceStyleReconciler[T, G]
+}
+
+func NewConfigurationStyleReconciler[T client.Object, G any](
+	scheme *runtime.Scheme,
+	instance T,
+	client client.Client,
+	mergedLabels map[string]string,
+	mergedCfg G,
+) *ConfigurationStyleReconciler[T, G] {
+	return &ConfigurationStyleReconciler[T, G]{
+		GeneralResourceStyleReconciler: *NewGeneraResourceStyleReconciler[T, G](
+			scheme,
+			instance,
+			client,
+			mergedLabels,
+			mergedCfg),
+	}
+}
+
+func (s *ConfigurationStyleReconciler[T, G]) DoReconcile(
+	ctx context.Context,
+	resource client.Object,
+	instance ResourceHandler,
+) (ctrl.Result, error) {
+	if override, ok := instance.(ConfigurationOverride); ok {
+		override.ConfigurationOverride(resource)
+	} else {
+		panic("resource is not ConfigurationOverride")
+	}
+	return s.Apply(ctx, resource)
+}
+
 // DeploymentStyleReconciler deployment style reconciler
 // this reconciler is used to reconcile the deployment style resources
 // such as deployment, statefulSet, etc.
@@ -166,7 +197,9 @@ func (s *GeneralResourceStyleReconciler[T, G]) DoReconcile(
 // 2. check if the resource is satisfied
 // 3. if not, return requeue
 // 4. if satisfied, return nil
-
+// Additional:
+//
+//	command and env override can support
 type DeploymentStyleReconciler[T client.Object, G any] struct {
 	BaseResourceReconciler[T, G]
 	replicas int32
