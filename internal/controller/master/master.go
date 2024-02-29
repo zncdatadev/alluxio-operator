@@ -5,7 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

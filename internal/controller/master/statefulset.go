@@ -3,7 +3,7 @@ package master
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

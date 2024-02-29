@@ -78,8 +78,7 @@ func MergeObjects(left interface{}, right interface{}, exclude []string) {
 			}
 			leftField := leftValues.FieldByName(rightFieldName)
 
-			// if left field is zero value, set it to right field
-			// else skip
+			// if left field is zero value, set it use right field, else skip
 			if !reflect.DeepEqual(leftField.Interface(), reflect.Zero(leftField.Type()).Interface()) {
 				continue
 			}
@@ -88,6 +87,7 @@ func MergeObjects(left interface{}, right interface{}, exclude []string) {
 		}
 	}
 }
+
 func contains(slice []string, str string) bool {
 	for _, v := range slice {
 		if v == str {

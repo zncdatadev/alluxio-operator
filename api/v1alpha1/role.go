@@ -76,8 +76,8 @@ type RoleSpec struct {
 type ConfigOverridesSpec struct {
 	OverrideConfig map[string]string `json:"hive-site.xml,omitempty"`
 }
-type BaseConfigSpec struct {
 
+type MasterConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	Resources *ResourcesSpec `json:"resources,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -134,10 +134,6 @@ type BaseConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={}
 	Properties map[string]string `json:"properties,omitempty"`
-}
-
-type MasterConfigSpec struct {
-	BaseConfigSpec `json:",inline"`
 	// +kubebuilder:validation:Optional
 	Ports *MasterPortsSpec `json:"ports,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -145,7 +141,65 @@ type MasterConfigSpec struct {
 }
 
 type WorkerConfigSpec struct {
-	BaseConfigSpec `json:",inline"`
+	// +kubebuilder:validation:Optional
+	Resources *ResourcesSpec `json:"resources,omitempty"`
+	// +kubebuilder:validation:Optional
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// +kubebuilder:validation:Optional
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext"`
+
+	PodDisruptionBudget *PodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
+	// +kubebuilder:validation:Optional
+	Affinity *corev1.Affinity `json:"affinity"`
+
+	// +kubebuilder:validation:Optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Tolerations []corev1.Toleration `json:"tolerations"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
+	EnvVars map[string]string `json:"envVars,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
+	Args []string `json:"args,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	ExtraContainers []corev1.Container `json:"extraContainers,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	ExtraVolumeMounts []corev1.VolumeMount `json:"extraVolumeMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
+	JvmOptions []string `json:"jvmOptions,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	HostPID *bool `json:"hostPID,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	DnsPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
+	Properties map[string]string `json:"properties,omitempty"`
+
+	Resource ResourcesSpec `json:"resource,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	Ports *WorkerPortsSpec `json:"ports,omitempty"`
 	// +kubebuilder:validation:Optional

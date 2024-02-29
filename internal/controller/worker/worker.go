@@ -2,7 +2,7 @@ package worker
 
 import (
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

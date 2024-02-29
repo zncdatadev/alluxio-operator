@@ -50,8 +50,6 @@ spec:
       resources:
         memory:
           limit: 1Gi
-        cpu:
-          max: 100m
       jobWorker:
         args:
           - job-worker
@@ -61,3 +59,6 @@ spec:
         config:
           matchLabels:
             app: worker
+          resources:
+            cpu:
+              max: 100m

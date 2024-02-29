@@ -4,7 +4,7 @@ import (
 	"fmt"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
