@@ -218,10 +218,10 @@ const (
 	WorkerLogger    Logger = "WORKER_LOGGER"
 )
 
-var RoleLoggerMap = map[Role][]Logger{
-	Master: {MasterLogger, JobMasterLogger},
-	Worker: {WorkerLogger, JobWorkerLogger},
-}
+//var RoleLoggerMap = map[Role][]Logger{
+//	Master: {MasterLogger, JobMasterLogger},
+//	Worker: {WorkerLogger, JobWorkerLogger},
+//}
 
 type RoleLoggingDataBuilder interface {
 	MakeContainerLog4jData() map[string]string
@@ -240,7 +240,7 @@ func NewLoggingReconciler(
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
+	mergedCfg any,
 	logDataBuilder RoleLoggingDataBuilder,
 	role Role,
 ) *LoggingRecociler {

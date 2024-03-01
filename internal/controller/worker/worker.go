@@ -68,7 +68,7 @@ func (r *RoleWorker) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 	}
 
 	for name := range r.Role.RoleGroups {
-		groupReconciler := NewRoleWorkerGroup(r.Scheme, r.Instance, r.Client, name, r.Log)
+		groupReconciler := NewRoleWorkerGroup(r.Scheme, r.Instance, r.Client, name, r.Labels, r.Log)
 		res, err := groupReconciler.ReconcileGroup(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -95,13 +95,15 @@ func NewRoleWorkerGroup(
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
 	groupName string,
+	roleLables map[string]string,
 	log logr.Logger) *RoleWorkerGroup {
 	r := &RoleWorkerGroup{
-		Scheme:    scheme,
-		Instance:  instance,
-		Client:    client,
-		GroupName: groupName,
-		Log:       log,
+		Scheme:     scheme,
+		Instance:   instance,
+		Client:     client,
+		GroupName:  groupName,
+		RoleLabels: roleLables,
+		Log:        log,
 	}
 	return r
 }
@@ -117,7 +119,7 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	mergedCfgObj := m.MergeGroupConfigSpec()
 	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.WorkerRoleGroupSpec)
 	// cache it
-	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(common.Worker), m.GroupName),
+	common.MergedCache.Set(createWorkerGroupCacheKey(m.Instance.GetName(), string(common.Worker), m.GroupName),
 		mergedGroupCfg)
 	mergedLabels := m.MergeLabels(mergedGroupCfg)
 
@@ -145,6 +147,13 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 	//loggin
+	workerLogDataBuilder := &LogDataBuilder{cfg: mergedGroupCfg}
+	loggin := common.NewLoggingReconciler(
+		m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg, workerLogDataBuilder, common.Worker)
+	if _, err := loggin.ReconcileResource(ctx, m.GroupName, loggin); err != nil {
+		m.Log.Error(err, "Reconcile logging of Worker-role failed", "groupName", m.GroupName)
+		return ctrl.Result{}, err
+	}
 	deployment := NewDeployment(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
 	if _, err := deployment.ReconcileResource(ctx, m.GroupName, deployment); err != nil {
 		m.Log.Error(err, "Reconcile deployment of Worker-role failed", "groupName", m.GroupName)
@@ -186,4 +195,25 @@ func mergeConfig(workerRole *stackv1alpha1.WorkerSpec,
 		common.MergeObjects(copiedRoleGroup.Config, workerRole.Config, []string{})
 	}
 	return copiedRoleGroup
+}
+
+type LogDataBuilder struct {
+	cfg *stackv1alpha1.WorkerRoleGroupSpec
+}
+
+// MakeContainerLog4jData implement RoleLoggingDataBuilder
+func (c *LogDataBuilder) MakeContainerLog4jData() map[string]string {
+	cfg := c.cfg
+	data := make(map[string]string)
+	//worker logger data
+	if cfg.Config.Logging != nil {
+		workerLogger := common.PropertiesValue(common.WorkerLogger, cfg.Config.Logging.Metastore)
+		data[common.CreateLoggerConfigMapKey(common.WorkerLogger)] = workerLogger
+	}
+	//job worker logger data
+	if cfg.Config.JobWorker.Logging != nil {
+		jobWorkerLogger := common.PropertiesValue(common.JobWorkerLogger, cfg.Config.JobWorker.Logging.Metastore)
+		data[common.CreateLoggerConfigMapKey(common.JobWorkerLogger)] = jobWorkerLogger
+	}
+	return data
 }
