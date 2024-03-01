@@ -281,7 +281,7 @@ func PropertiesValue(logger Logger, loggingConfig *stackv1alpha1.LoggingConfigSp
 		for k, level := range loggingConfig.Loggers {
 			if level != nil {
 				v := *level
-				properties["log4j."+k] = v.Level
+				properties["log4j.logger"+k] = v.Level
 			}
 		}
 	}

@@ -25,6 +25,11 @@ spec:
         type: emptyDir
   master:
     config:
+      logging:
+       metastore:
+         loggers:
+          "MASTER_LOGGER":
+            level: "ERROR"
       args:
         - master-only
         - --no-format
