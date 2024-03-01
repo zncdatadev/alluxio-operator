@@ -5,7 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,7 +15,7 @@ import (
 // roleMaster reconciler
 
 type RoleMaster struct {
-	role.BaseRoleReconciler[*stackv1alpha1.MasterSpec]
+	common.BaseRoleReconciler[*stackv1alpha1.MasterSpec]
 }
 
 // NewRoleMaster new roleMaster
@@ -25,7 +25,7 @@ func NewRoleMaster(
 	client client.Client,
 	log logr.Logger) *RoleMaster {
 	r := &RoleMaster{
-		BaseRoleReconciler: role.BaseRoleReconciler[*stackv1alpha1.MasterSpec]{
+		BaseRoleReconciler: common.BaseRoleReconciler[*stackv1alpha1.MasterSpec]{
 			Scheme:   scheme,
 			Instance: instance,
 			Client:   client,
@@ -37,8 +37,8 @@ func NewRoleMaster(
 	return r
 }
 
-func (r *RoleMaster) RoleName() role.Role {
-	return role.Master
+func (r *RoleMaster) RoleName() common.Role {
+	return common.Master
 }
 
 func (r *RoleMaster) MergeLabels() map[string]string {
@@ -59,7 +59,7 @@ func (r *RoleMaster) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 	}
 
 	for name := range r.Role.RoleGroups {
-		groupReconciler := NewRoleMasterGroup(r.Scheme, r.Instance, r.Client, name, r.Log)
+		groupReconciler := NewRoleMasterGroup(r.Scheme, r.Instance, r.Client, name, r.Labels, r.Log)
 		res, err := groupReconciler.ReconcileGroup(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -86,13 +86,15 @@ func NewRoleMasterGroup(
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
 	groupName string,
+	roleLabels map[string]string,
 	log logr.Logger) *RoleMasterGroup {
 	r := &RoleMasterGroup{
-		Scheme:    scheme,
-		Instance:  instance,
-		Client:    client,
-		GroupName: groupName,
-		Log:       log,
+		Scheme:     scheme,
+		Instance:   instance,
+		Client:     client,
+		GroupName:  groupName,
+		RoleLabels: roleLabels,
+		Log:        log,
 	}
 	return r
 }
@@ -108,7 +110,7 @@ func (m *RoleMasterGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	mergedCfgObj := m.MergeGroupConfigSpec()
 	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.MasterRoleGroupSpec)
 	// cache it
-	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.Master), m.GroupName),
+	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(common.Master), m.GroupName),
 		mergedGroupCfg)
 
 	mergedLabels := m.MergeLabels(mergedGroupCfg)
@@ -125,19 +127,29 @@ func (m *RoleMasterGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 	// configmap
-	configmap := NewConfigMap(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
+	configmap := NewConfigMap(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg)
 	if _, err := configmap.ReconcileResource(ctx, m.GroupName, configmap); err != nil {
 		m.Log.Error(err, "Reconcile configmap of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
+
+	//loggin  configmap
+	masterLogDataBuilder := &LogDataBuilder{cfg: mergedGroupCfg}
+	loggin := common.NewLoggingReconciler(
+		m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg, masterLogDataBuilder, common.Master)
+	if _, err := loggin.ReconcileResource(ctx, m.GroupName, loggin); err != nil {
+		m.Log.Error(err, "Reconcile loggin of Master-role failed", "groupName", m.GroupName)
+		return ctrl.Result{}, err
+	}
+
 	// statefulSet
-	statefulSet := NewStatefulSet(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
+	statefulSet := NewStatefulSet(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
 	if _, err := statefulSet.ReconcileResource(ctx, m.GroupName, statefulSet); err != nil {
 		m.Log.Error(err, "Reconcile statefulSet of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
 	// service
-	svc := NewService(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
+	svc := NewService(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg)
 	if _, err := svc.ReconcileResource(ctx, m.GroupName, svc); err != nil {
 		m.Log.Error(err, "Reconcile service of Master-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
@@ -157,7 +169,7 @@ func (m *RoleMasterGroup) MergeGroupConfigSpec() any {
 func (m *RoleMasterGroup) MergeLabels(mergedCfg any) map[string]string {
 	mergedMasterCfg := mergedCfg.(*stackv1alpha1.MasterRoleGroupSpec)
 	roleLabels := m.RoleLabels
-	mergeLabels := make(common.Map)
+	mergeLabels := make(util.Map)
 	mergeLabels.MapMerge(roleLabels, true)
 	mergeLabels.MapMerge(mergedMasterCfg.Config.MatchLabels, true)
 	mergeLabels["app.kubernetes.io/instance"] = strings.ToLower(m.GroupName)
@@ -171,11 +183,32 @@ func mergeConfig(masterRole *stackv1alpha1.MasterSpec,
 	// Merge the role into the role group.
 	// if the role group has a config, and role group not has a config, will
 	// merge the role's config into the role group's config.
-	role.MergeObjects(copiedRoleGroup, masterRole, []string{"RoleGroups"})
+	common.MergeObjects(copiedRoleGroup, masterRole, []string{"RoleGroups"})
 
 	// merge the role's config into the role group's config
 	if masterRole.Config != nil && copiedRoleGroup.Config != nil {
-		role.MergeObjects(copiedRoleGroup.Config, masterRole.Config, []string{})
+		common.MergeObjects(copiedRoleGroup.Config, masterRole.Config, []string{})
 	}
 	return copiedRoleGroup
+}
+
+type LogDataBuilder struct {
+	cfg *stackv1alpha1.MasterRoleGroupSpec
+}
+
+// MakeContainerLog4jData implement RoleLoggingDataBuilder
+func (c *LogDataBuilder) MakeContainerLog4jData() map[string]string {
+	cfg := c.cfg
+	data := make(map[string]string)
+	//master logger data
+	if cfg.Config.Logging != nil {
+		masterLogger := common.PropertiesValue(common.MasterLogger, cfg.Config.Logging.Metastore)
+		data[common.CreateLoggerConfigMapKey(common.MasterLogger)] = masterLogger
+	}
+	//job master logger data
+	if cfg.Config.JobMaster.Logging != nil {
+		jobMasterLogger := common.PropertiesValue(common.JobMasterLogger, cfg.Config.JobMaster.Logging.Metastore)
+		data[common.CreateLoggerConfigMapKey(common.JobMasterLogger)] = jobMasterLogger
+	}
+	return data
 }

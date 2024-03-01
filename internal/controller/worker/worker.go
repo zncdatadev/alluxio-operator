@@ -2,7 +2,7 @@ package worker
 
 import (
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
+	"github.com/zncdata-labs/alluxio-operator/internal/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -18,7 +18,7 @@ import (
 // roleWorker reconciler
 
 type RoleWorker struct {
-	role.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]
+	common.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]
 }
 
 // NewRoleWorker new roleWorker
@@ -28,7 +28,7 @@ func NewRoleWorker(
 	client client.Client,
 	log logr.Logger) *RoleWorker {
 	r := &RoleWorker{
-		BaseRoleReconciler: role.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]{
+		BaseRoleReconciler: common.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]{
 			Scheme:   scheme,
 			Instance: instance,
 			Client:   client,
@@ -40,8 +40,8 @@ func NewRoleWorker(
 	return r
 }
 
-func (r *RoleWorker) RoleName() role.Role {
-	return role.Worker
+func (r *RoleWorker) RoleName() common.Role {
+	return common.Worker
 }
 
 func (r *RoleWorker) MergeLabels() map[string]string {
@@ -117,7 +117,7 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	mergedCfgObj := m.MergeGroupConfigSpec()
 	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.WorkerRoleGroupSpec)
 	// cache it
-	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(role.Worker), m.GroupName),
+	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(common.Worker), m.GroupName),
 		mergedGroupCfg)
 	mergedLabels := m.MergeLabels(mergedGroupCfg)
 
@@ -139,13 +139,13 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	pvc := NewPvc(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg)
+	pvc := NewPvc(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg)
 	if _, err := pvc.ReconcileResource(ctx, m.GroupName, pvc); err != nil {
 		m.Log.Error(err, "Reconcile pvc of Worker-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
 	}
-
-	deployment := NewDeployment(m.Scheme, m.Instance, m.Client, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
+	//loggin
+	deployment := NewDeployment(m.Scheme, m.Instance, m.Client, m.GroupName, mergedLabels, mergedGroupCfg, mergedGroupCfg.Replicas)
 	if _, err := deployment.ReconcileResource(ctx, m.GroupName, deployment); err != nil {
 		m.Log.Error(err, "Reconcile deployment of Worker-role failed", "groupName", m.GroupName)
 		return ctrl.Result{}, err
@@ -165,7 +165,7 @@ func (m *RoleWorkerGroup) MergeGroupConfigSpec() any {
 func (m *RoleWorkerGroup) MergeLabels(mergedCfg any) map[string]string {
 	mergedWorkerCfg := mergedCfg.(*stackv1alpha1.WorkerRoleGroupSpec)
 	roleLabels := m.RoleLabels
-	mergeLabels := make(common.Map)
+	mergeLabels := make(util.Map)
 	mergeLabels.MapMerge(roleLabels, true)
 	mergeLabels.MapMerge(mergedWorkerCfg.Config.MatchLabels, true)
 	mergeLabels["app.kubernetes.io/instance"] = strings.ToLower(m.GroupName)
@@ -179,11 +179,11 @@ func mergeConfig(workerRole *stackv1alpha1.WorkerSpec,
 	// Merge the role into the role group.
 	// if the role group has a config, and role group not has a config, will
 	// merge the role's config into the role group's config.
-	role.MergeObjects(copiedRoleGroup, workerRole, []string{"RoleGroups"})
+	common.MergeObjects(copiedRoleGroup, workerRole, []string{"RoleGroups"})
 
 	// merge the role's config into the role group's config
 	if workerRole.Config != nil && copiedRoleGroup.Config != nil {
-		role.MergeObjects(copiedRoleGroup.Config, workerRole.Config, []string{})
+		common.MergeObjects(copiedRoleGroup.Config, workerRole.Config, []string{})
 	}
 	return copiedRoleGroup
 }

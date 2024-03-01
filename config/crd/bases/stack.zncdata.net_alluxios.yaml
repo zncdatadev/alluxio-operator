@@ -2009,6 +2009,40 @@ spec:
                             items:
                               type: string
                             type: array
+                          logging:
+                            properties:
+                              metastore:
+                                properties:
+                                  console:
+                                    properties:
+                                      level:
+                                        default: INFO
+                                        enum:
+                                        - FATAL
+                                        - ERROR
+                                        - WARN
+                                        - INFO
+                                        - DEBUG
+                                        - TRACE
+                                        type: string
+                                    type: object
+                                  loggers:
+                                    additionalProperties:
+                                      properties:
+                                        level:
+                                          default: INFO
+                                          enum:
+                                          - FATAL
+                                          - ERROR
+                                          - WARN
+                                          - INFO
+                                          - DEBUG
+                                          - TRACE
+                                          type: string
+                                      type: object
+                                    type: object
+                                type: object
+                            type: object
                           ports:
                             properties:
                               embedded:
@@ -2072,6 +2106,40 @@ spec:
                         items:
                           type: string
                         type: array
+                      logging:
+                        properties:
+                          metastore:
+                            properties:
+                              console:
+                                properties:
+                                  level:
+                                    default: INFO
+                                    enum:
+                                    - FATAL
+                                    - ERROR
+                                    - WARN
+                                    - INFO
+                                    - DEBUG
+                                    - TRACE
+                                    type: string
+                                type: object
+                              loggers:
+                                additionalProperties:
+                                  properties:
+                                    level:
+                                      default: INFO
+                                      enum:
+                                      - FATAL
+                                      - ERROR
+                                      - WARN
+                                      - INFO
+                                      - DEBUG
+                                      - TRACE
+                                      type: string
+                                  type: object
+                                type: object
+                            type: object
+                        type: object
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -2233,7 +2301,7 @@ spec:
                     type: object
                   configOverrides:
                     properties:
-                      hive-site.xml:
+                      overrideConfig:
                         additionalProperties:
                           type: string
                         type: object
@@ -4087,6 +4155,40 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                                logging:
+                                  properties:
+                                    metastore:
+                                      properties:
+                                        console:
+                                          properties:
+                                            level:
+                                              default: INFO
+                                              enum:
+                                              - FATAL
+                                              - ERROR
+                                              - WARN
+                                              - INFO
+                                              - DEBUG
+                                              - TRACE
+                                              type: string
+                                          type: object
+                                        loggers:
+                                          additionalProperties:
+                                            properties:
+                                              level:
+                                                default: INFO
+                                                enum:
+                                                - FATAL
+                                                - ERROR
+                                                - WARN
+                                                - INFO
+                                                - DEBUG
+                                                - TRACE
+                                                type: string
+                                            type: object
+                                          type: object
+                                      type: object
+                                  type: object
                                 ports:
                                   properties:
                                     embedded:
@@ -4150,6 +4252,40 @@ spec:
                               items:
                                 type: string
                               type: array
+                            logging:
+                              properties:
+                                metastore:
+                                  properties:
+                                    console:
+                                      properties:
+                                        level:
+                                          default: INFO
+                                          enum:
+                                          - FATAL
+                                          - ERROR
+                                          - WARN
+                                          - INFO
+                                          - DEBUG
+                                          - TRACE
+                                          type: string
+                                      type: object
+                                    loggers:
+                                      additionalProperties:
+                                        properties:
+                                          level:
+                                            default: INFO
+                                            enum:
+                                            - FATAL
+                                            - ERROR
+                                            - WARN
+                                            - INFO
+                                            - DEBUG
+                                            - TRACE
+                                            type: string
+                                        type: object
+                                      type: object
+                                  type: object
+                              type: object
                             matchLabels:
                               additionalProperties:
                                 type: string
@@ -4311,7 +4447,7 @@ spec:
                           type: object
                         configOverrides:
                           properties:
-                            hive-site.xml:
+                            overrideConfig:
                               additionalProperties:
                                 type: string
                               type: object
@@ -6162,6 +6298,40 @@ spec:
                             items:
                               type: string
                             type: array
+                          logging:
+                            properties:
+                              metastore:
+                                properties:
+                                  console:
+                                    properties:
+                                      level:
+                                        default: INFO
+                                        enum:
+                                        - FATAL
+                                        - ERROR
+                                        - WARN
+                                        - INFO
+                                        - DEBUG
+                                        - TRACE
+                                        type: string
+                                    type: object
+                                  loggers:
+                                    additionalProperties:
+                                      properties:
+                                        level:
+                                          default: INFO
+                                          enum:
+                                          - FATAL
+                                          - ERROR
+                                          - WARN
+                                          - INFO
+                                          - DEBUG
+                                          - TRACE
+                                          type: string
+                                      type: object
+                                    type: object
+                                type: object
+                            type: object
                           ports:
                             properties:
                               data:
@@ -6225,6 +6395,40 @@ spec:
                         items:
                           type: string
                         type: array
+                      logging:
+                        properties:
+                          metastore:
+                            properties:
+                              console:
+                                properties:
+                                  level:
+                                    default: INFO
+                                    enum:
+                                    - FATAL
+                                    - ERROR
+                                    - WARN
+                                    - INFO
+                                    - DEBUG
+                                    - TRACE
+                                    type: string
+                                type: object
+                              loggers:
+                                additionalProperties:
+                                  properties:
+                                    level:
+                                      default: INFO
+                                      enum:
+                                      - FATAL
+                                      - ERROR
+                                      - WARN
+                                      - INFO
+                                      - DEBUG
+                                      - TRACE
+                                      type: string
+                                  type: object
+                                type: object
+                            type: object
+                        type: object
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -6421,7 +6625,7 @@ spec:
                     type: object
                   configOverrides:
                     properties:
-                      hive-site.xml:
+                      overrideConfig:
                         additionalProperties:
                           type: string
                         type: object
@@ -8275,6 +8479,40 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                                logging:
+                                  properties:
+                                    metastore:
+                                      properties:
+                                        console:
+                                          properties:
+                                            level:
+                                              default: INFO
+                                              enum:
+                                              - FATAL
+                                              - ERROR
+                                              - WARN
+                                              - INFO
+                                              - DEBUG
+                                              - TRACE
+                                              type: string
+                                          type: object
+                                        loggers:
+                                          additionalProperties:
+                                            properties:
+                                              level:
+                                                default: INFO
+                                                enum:
+                                                - FATAL
+                                                - ERROR
+                                                - WARN
+                                                - INFO
+                                                - DEBUG
+                                                - TRACE
+                                                type: string
+                                            type: object
+                                          type: object
+                                      type: object
+                                  type: object
                                 ports:
                                   properties:
                                     data:
@@ -8338,6 +8576,40 @@ spec:
                               items:
                                 type: string
                               type: array
+                            logging:
+                              properties:
+                                metastore:
+                                  properties:
+                                    console:
+                                      properties:
+                                        level:
+                                          default: INFO
+                                          enum:
+                                          - FATAL
+                                          - ERROR
+                                          - WARN
+                                          - INFO
+                                          - DEBUG
+                                          - TRACE
+                                          type: string
+                                      type: object
+                                    loggers:
+                                      additionalProperties:
+                                        properties:
+                                          level:
+                                            default: INFO
+                                            enum:
+                                            - FATAL
+                                            - ERROR
+                                            - WARN
+                                            - INFO
+                                            - DEBUG
+                                            - TRACE
+                                            type: string
+                                        type: object
+                                      type: object
+                                  type: object
+                              type: object
                             matchLabels:
                               additionalProperties:
                                 type: string
@@ -8534,7 +8806,7 @@ spec:
                           type: object
                         configOverrides:
                           properties:
-                            hive-site.xml:
+                            overrideConfig:
                               additionalProperties:
                                 type: string
                               type: object

@@ -3,7 +3,6 @@ package master
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,6 +20,7 @@ func NewStatefulSet(
 	scheme *runtime.Scheme,
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 	replicas int32,
@@ -31,6 +31,7 @@ func NewStatefulSet(
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg,
 			replicas),
@@ -61,12 +62,52 @@ func (s *StatefulSetReconciler) EnvOverride(obj client.Object) {
 	if envOverride := s.MergedCfg.EnvOverrides; envOverride != nil {
 		for i := range containers {
 			envVars := containers[i].Env
-			common.OverrideEnvVars(envVars, s.MergedCfg.EnvOverrides)
+			common.OverrideEnvVars(&envVars, s.MergedCfg.EnvOverrides)
 		}
 	}
 }
 
-func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
+// LogOverride only deployment and statefulset need to implement this method
+func (s *StatefulSetReconciler) LogOverride(resource client.Object) {
+	statefulSet := resource.(*appsv1.StatefulSet)
+	volumes := statefulSet.Spec.Template.Spec.Volumes
+	if s.EnabledLogging() {
+		log4jVolume := corev1.Volume{
+			Name: common.CreateLog4jVolumeName(),
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: common.CreateRoleGroupLoggingConfigMapName(s.Instance.GetName(), string(common.Master), s.GroupName),
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  common.CreateLoggerConfigMapKey(common.MasterLogger),
+							Path: common.Log4jCfgName,
+						},
+						{
+							Key:  common.CreateLoggerConfigMapKey(common.JobMasterLogger),
+							Path: common.Log4jCfgName,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, log4jVolume)
+		statefulSet.Spec.Template.Spec.Volumes = volumes
+	}
+}
+
+func (s *StatefulSetReconciler) RoleGroupConfig() *stackv1alpha1.MasterConfigSpec {
+	return s.MergedCfg.Config
+}
+
+func (s *StatefulSetReconciler) EnabledLogging() bool {
+	return s.RoleGroupConfig() != nil &&
+		s.RoleGroupConfig().Logging != nil &&
+		s.RoleGroupConfig().Logging.Metastore != nil
+}
+
+func (s *StatefulSetReconciler) Build() (client.Object, error) {
 	instance := s.Instance
 	mergedGroupCfg := s.MergedCfg
 	mergedConfigSpec := mergedGroupCfg.Config
@@ -80,18 +121,18 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 	journal := common.GetJournal(instance.Spec.ClusterConfig)
 	app := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      createMasterStatefulSetName(s.Instance.GetName(), string(role.Master), data.GroupName),
+			Name:      createMasterStatefulSetName(s.Instance.GetName(), string(common.Master), s.GroupName),
 			Namespace: instance.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas:    &mergedGroupCfg.Replicas,
 			ServiceName: instance.GetName() + "svc-master-headless",
 			Selector: &metav1.LabelSelector{
-				MatchLabels: data.Labels,
+				MatchLabels: s.MergedLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: data.Labels,
+					Labels: s.MergedLabels,
 				},
 				Spec: corev1.PodSpec{
 					SecurityContext:       mergedConfigSpec.SecurityContext,
@@ -105,23 +146,24 @@ func (s *StatefulSetReconciler) Build(data common.ResourceBuilderData) (client.O
 							Image:           image.Repository + ":" + image.Tag,
 							ImagePullPolicy: image.PullPolicy,
 							Env:             s.createEnvVars(isHaEmbedded, isSingleMaster, mergedGroupCfg),
-							EnvFrom:         createEnvFrom(instance, data.GroupName),
+							EnvFrom:         createEnvFrom(instance, s.GroupName),
 							Ports:           createMasterPorts(mergedGroupCfg, isHaEmbedded),
 							Command:         []string{"tini", "--", "/entrypoint.sh"},
 							Args:            s.getMasterCmdArgs(mergedGroupCfg),
 							Resources:       *common.ConvertToResourceRequirements(mergedConfigSpec.Resources),
-							VolumeMounts:    createVolumeMount(needJournalVolume, journal),
+							VolumeMounts:    s.createMasterVolumeMount(needJournalVolume, journal),
 						},
 						{
 							Name:            instance.GetNameWithSuffix("job-master"),
 							Image:           image.Repository + ":" + image.Tag,
 							ImagePullPolicy: image.PullPolicy,
 							Env:             s.createEnvVars(isHaEmbedded, isSingleMaster, mergedGroupCfg),
-							EnvFrom:         createEnvFrom(instance, data.GroupName),
+							EnvFrom:         createEnvFrom(instance, s.GroupName),
 							Ports:           createJobMasterPorts(mergedGroupCfg, isHaEmbedded),
 							Command:         []string{"tini", "--", "/entrypoint.sh"},
 							Args:            s.getJobMasterCmdArgs(mergedGroupCfg),
 							Resources:       *common.ConvertToResourceRequirements(mergedConfigSpec.JobMaster.Resources),
+							VolumeMounts:    s.createJobMasterVolumeMounts(),
 						},
 					},
 					Volumes: createVolumes(needJournalVolume, journal),
@@ -200,13 +242,40 @@ func isHaEmbedded(isEmbedded bool, replicas int32) bool {
 	return false
 }
 
+// is job master enabled logging
+func (s *StatefulSetReconciler) jobMasterEnabledLogging() bool {
+	return s.MergedCfg.Config.JobMaster.Logging != nil && s.MergedCfg.Config.JobMaster.Logging.Metastore != nil
+}
+
+// create job-master volume mounts
+func (s *StatefulSetReconciler) createJobMasterVolumeMounts() []corev1.VolumeMount {
+	if s.jobMasterEnabledLogging() {
+		return []corev1.VolumeMount{
+			{
+				Name:      common.CreateLog4jVolumeName(),
+				MountPath: "/opt/alluxio-2.9.3/conf/log4j.properties",
+				SubPath:   common.Log4jCfgName,
+			},
+		}
+	}
+	return nil
+}
+
 // create and add volumeMount if needJournalVolume is true
-func createVolumeMount(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) []corev1.VolumeMount {
+func (s *StatefulSetReconciler) createMasterVolumeMount(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	if needJournalVolume {
 		vm := corev1.VolumeMount{
 			Name:      "alluxio-journal",
 			MountPath: journal.Folder,
+		}
+		volumeMounts = append(volumeMounts, vm)
+	}
+	if s.EnabledLogging() {
+		vm := corev1.VolumeMount{
+			Name:      common.CreateLog4jVolumeName(),
+			MountPath: "/opt/alluxio-2.9.3/conf/log4j.properties",
+			SubPath:   common.Log4jCfgName,
 		}
 		volumeMounts = append(volumeMounts, vm)
 	}

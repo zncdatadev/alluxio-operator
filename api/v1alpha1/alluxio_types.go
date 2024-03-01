@@ -161,6 +161,9 @@ type JobMasterSpec struct {
 	Resources *ResourcesSpec `json:"resources,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	Logging *ContainerLoggingSpec `json:"logging,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	Ports *JobMasterPortsSpec `json:"ports,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -187,6 +190,9 @@ type JobWorkerSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Properties map[string]string `json:"properties,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Logging *ContainerLoggingSpec `json:"logging,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	Resources *ResourcesSpec `json:"resources,omitempty"`
