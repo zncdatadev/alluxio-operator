@@ -3,7 +3,6 @@ package worker
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +19,7 @@ func NewDeployment(
 	scheme *runtime.Scheme,
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.WorkerRoleGroupSpec,
 	replicas int32,
@@ -30,6 +30,7 @@ func NewDeployment(
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg,
 			replicas),
@@ -40,9 +41,9 @@ func (d *DeploymentReconciler) GetConditions() *[]metav1.Condition {
 	return &d.Instance.Status.Conditions
 }
 
-func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
+func (d *DeploymentReconciler) Build() (client.Object, error) {
 
-	groupName := data.GroupName
+	groupName := d.GroupName
 	mergedGroupCfg := d.MergedCfg
 	mergedConfigSpec := mergedGroupCfg.Config
 	instance := d.Instance
@@ -60,7 +61,7 @@ func (d *DeploymentReconciler) Build(data common.ResourceBuilderData) (client.Ob
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      createDeploymentName(instance.GetName(), string(role.Worker), groupName),
+			Name:      createDeploymentName(instance.GetName(), string(common.Worker), groupName),
 			Namespace: instance.Namespace,
 			Labels:    d.MergedLabels,
 		},
@@ -195,8 +196,47 @@ func (d *DeploymentReconciler) EnvOverride(obj client.Object) {
 	if envOverride := d.MergedCfg.EnvOverrides; envOverride != nil {
 		for i := range containers {
 			envVars := containers[i].Env
-			common.OverrideEnvVars(envVars, d.MergedCfg.EnvOverrides)
+			common.OverrideEnvVars(&envVars, d.MergedCfg.EnvOverrides)
 		}
+	}
+}
+
+func (d *DeploymentReconciler) RoleGroupConfig() *stackv1alpha1.WorkerConfigSpec {
+	return d.MergedCfg.Config
+}
+
+func (d *DeploymentReconciler) EnabledLogging() bool {
+	return d.RoleGroupConfig() != nil &&
+		d.RoleGroupConfig().Logging != nil &&
+		d.RoleGroupConfig().Logging.Metastore != nil
+}
+
+func (d *DeploymentReconciler) LogOverride(resource client.Object) {
+	statefulSet := resource.(*appsv1.Deployment)
+	volumes := statefulSet.Spec.Template.Spec.Volumes
+	if d.EnabledLogging() {
+		log4jVolume := corev1.Volume{
+			Name: common.CreateLog4jVolumeName(),
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: common.CreateRoleGroupLoggingConfigMapName(d.Instance.GetName(), string(common.Master), d.GroupName),
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  common.CreateLoggerConfigMapKey(common.WorkerLogger),
+							Path: common.Log4jCfgName,
+						},
+						{
+							Key:  common.CreateLoggerConfigMapKey(common.JobWorkerLogger),
+							Path: common.Log4jCfgName,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, log4jVolume)
+		statefulSet.Spec.Template.Spec.Volumes = volumes
 	}
 }
 

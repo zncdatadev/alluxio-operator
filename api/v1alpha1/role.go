@@ -56,25 +56,8 @@ type ListenerSpec struct {
 	Port int32 `json:"port,omitempty"`
 }
 
-type RoleSpec struct {
-
-	// +kubebuilder:validation:Optional
-	Config *MasterConfigSpec `json:"config,omitempty"`
-
-	RoleGroups map[string]*MasterRoleGroupSpec `json:"roleGroups,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	CommandArgsOverrides []string `json:"commandArgsOverrides,omitempty"`
-	// +kubebuilder:validation:Optional
-	ConfigOverrides *ConfigOverridesSpec `json:"configOverrides,omitempty"`
-	// +kubebuilder:validation:Optional
-	EnvOverrides map[string]string `json:"envOverrides,omitempty"`
-	//// +kubebuilder:validation:Optional
-	//PodOverride corev1.PodSpec `json:"podOverride,omitempty"`
-}
-
 type ConfigOverridesSpec struct {
-	OverrideConfig map[string]string `json:"hive-site.xml,omitempty"`
+	OverrideConfig map[string]string `json:"overrideConfig,omitempty"`
 }
 
 type MasterConfigSpec struct {
@@ -94,6 +77,9 @@ type MasterConfigSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Tolerations []corev1.Toleration `json:"tolerations"`
+
+	// +kubebuilder:validation:Optional
+	Logging *ContainerLoggingSpec `json:"logging,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={}
@@ -157,6 +143,9 @@ type WorkerConfigSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Tolerations []corev1.Toleration `json:"tolerations"`
+
+	// +kubebuilder:validation:Optional
+	Logging *ContainerLoggingSpec `json:"logging,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={}

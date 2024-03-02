@@ -2,11 +2,10 @@ package common
 
 import (
 	"context"
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	"github.com/zncdata-labs/alluxio-operator/internal/util"
 	opgostatus "github.com/zncdata-labs/operator-go/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,7 +18,7 @@ type IReconciler interface {
 }
 
 type ResourceBuilder interface {
-	Build(data ResourceBuilderData) (client.Object, error)
+	Build() (client.Object, error)
 }
 
 type ResourceHandler interface {
@@ -32,6 +31,7 @@ type ConditionsGetter interface {
 type WorkloadOverride interface {
 	CommandOverride(resource client.Object)
 	EnvOverride(resource client.Object)
+	LogOverride(resource client.Object)
 }
 
 type ConfigurationOverride interface {
@@ -39,9 +39,10 @@ type ConfigurationOverride interface {
 }
 
 type BaseResourceReconciler[T client.Object, G any] struct {
-	Instance T
-	Scheme   *runtime.Scheme
-	Client   client.Client
+	Instance  T
+	Scheme    *runtime.Scheme
+	Client    client.Client
+	GroupName string
 
 	MergedLabels map[string]string
 	MergedCfg    G
@@ -52,31 +53,16 @@ func NewBaseResourceReconciler[T client.Object, G any](
 	scheme *runtime.Scheme,
 	instance T,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg G) *BaseResourceReconciler[T, G] {
 	return &BaseResourceReconciler[T, G]{
 		Instance:     instance,
 		Scheme:       scheme,
 		Client:       client,
+		GroupName:    groupName,
 		MergedLabels: mergedLabels,
 		MergedCfg:    mergedCfg,
-	}
-}
-
-type ResourceBuilderData struct {
-	Labels    map[string]string
-	GroupName string
-	//group config spec after merge
-	MergedGroupCfg any
-}
-
-// NewResourceBuilderData returns a new ResourceBuilderData
-func NewResourceBuilderData(labels map[string]string, groupName string,
-	mergedGroupCfg any) ResourceBuilderData {
-	return ResourceBuilderData{
-		Labels:         labels,
-		GroupName:      groupName,
-		MergedGroupCfg: mergedGroupCfg,
 	}
 }
 
@@ -87,8 +73,7 @@ func (b *BaseResourceReconciler[T, G]) ReconcileResource(
 	// 1. mergelables
 	// 2. build resource
 	// 3. setControllerReference
-	data := NewResourceBuilderData(b.MergedLabels, groupName, b.MergedCfg)
-	obj, err := resInstance.Build(data)
+	obj, err := resInstance.Build()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -102,10 +87,13 @@ func (b *BaseResourceReconciler[T, G]) ReconcileResource(
 }
 
 func (b *BaseResourceReconciler[T, G]) Apply(ctx context.Context, dep client.Object) (ctrl.Result, error) {
+	if dep == nil {
+		return ctrl.Result{}, nil
+	}
 	if err := ctrl.SetControllerReference(b.Instance, dep, b.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
-	mutant, err := CreateOrUpdate(ctx, b.Client, dep)
+	mutant, err := util.CreateOrUpdate(ctx, b.Client, dep)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -127,6 +115,7 @@ func NewGeneraResourceStyleReconciler[T client.Object, G any](
 	scheme *runtime.Scheme,
 	instance T,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg G,
 ) *GeneralResourceStyleReconciler[T, G] {
@@ -135,6 +124,7 @@ func NewGeneraResourceStyleReconciler[T client.Object, G any](
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg),
 	}
@@ -163,6 +153,7 @@ func NewConfigurationStyleReconciler[T client.Object, G any](
 	scheme *runtime.Scheme,
 	instance T,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg G,
 ) *ConfigurationStyleReconciler[T, G] {
@@ -171,6 +162,7 @@ func NewConfigurationStyleReconciler[T client.Object, G any](
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg),
 	}
@@ -209,6 +201,7 @@ func NewDeploymentStyleReconciler[T client.Object, G any](
 	scheme *runtime.Scheme,
 	instance T,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg G,
 	replicas int32,
@@ -218,6 +211,7 @@ func NewDeploymentStyleReconciler[T client.Object, G any](
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg),
 		replicas: replicas,
@@ -236,6 +230,7 @@ func (s *DeploymentStyleReconciler[T, G]) DoReconcile(
 	if override, ok := instance.(WorkloadOverride); ok {
 		override.CommandOverride(resource)
 		override.EnvOverride(resource)
+		override.LogOverride(resource)
 	} else {
 		panic("resource is not WorkloadOverride")
 	}
@@ -310,66 +305,4 @@ func (s *DeploymentStyleReconciler[T, G]) updateStatus(
 	} else {
 		panic("instance is not ConditionsGetter")
 	}
-}
-
-func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
-	var (
-		cpuMin      = resource.MustParse("100m")
-		cpuMax      = resource.MustParse("500")
-		memoryLimit = resource.MustParse("1Gi")
-	)
-	if resources != nil {
-		if resources.CPU != nil && resources.CPU.Min != nil {
-			cpuMin = *resources.CPU.Min
-		}
-		if resources.CPU != nil && resources.CPU.Max != nil {
-			cpuMax = *resources.CPU.Max
-		}
-		if resources.Memory != nil && resources.Memory.Limit != nil {
-			memoryLimit = *resources.Memory.Limit
-		}
-	}
-	return &corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    cpuMax,
-			corev1.ResourceMemory: memoryLimit,
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    cpuMin,
-			corev1.ResourceMemory: memoryLimit,
-		},
-	}
-}
-
-// GetWorkerPorts get worker ports
-func GetWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.WorkerPortsSpec {
-	workerPorts := workerCfg.Config.Ports
-	if workerPorts == nil {
-		workerPorts = &stackv1alpha1.WorkerPortsSpec{
-			Web: stackv1alpha1.WorkerWebPort,
-			Rpc: stackv1alpha1.WorkerRpcPort,
-		}
-	}
-	return workerPorts
-}
-
-// GetJobWorkerPorts get job worker ports
-func GetJobWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.JobWorkerPortsSpec {
-	jobWorkerPorts := workerCfg.Config.JobWorker.Ports
-	if jobWorkerPorts == nil {
-		jobWorkerPorts = &stackv1alpha1.JobWorkerPortsSpec{
-			Web:  stackv1alpha1.JobWorkerWebPort,
-			Rpc:  stackv1alpha1.JobWorkerRpcPort,
-			Data: stackv1alpha1.JobWorkerDataPort,
-		}
-	}
-	return jobWorkerPorts
-}
-
-func GetJournal(cluster *stackv1alpha1.ClusterConfigSpec) *stackv1alpha1.JournalSpec {
-	if cluster.Journal == nil {
-		defaultJournal := cluster.GetJournal()
-		return &defaultJournal
-	}
-	return cluster.Journal
 }

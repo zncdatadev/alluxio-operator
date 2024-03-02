@@ -4,17 +4,17 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"github.com/zncdata-labs/alluxio-operator/internal/controller/master"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	"github.com/zncdata-labs/alluxio-operator/internal/controller/worker"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var roles = make(map[role.Role]role.RoleReconciler)
+var roles = make(map[common.Role]common.RoleReconciler)
 
-func RegisterRole(role role.Role, roleReconciler role.RoleReconciler) {
+func RegisterRole(role common.Role, roleReconciler common.RoleReconciler) {
 	roles[role] = roleReconciler
 }
 
@@ -36,8 +36,8 @@ func NewClusterReconciler(client client.Client, scheme *runtime.Scheme, cr *stac
 func (c *ClusterReconciler) ReconcileCluster(ctx context.Context) (ctrl.Result, error) {
 	// Register roles
 	// worker should be registered before master
-	RegisterRole(role.Worker, worker.NewRoleWorker(c.scheme, c.cr, c.client, c.Log))
-	RegisterRole(role.Master, master.NewRoleMaster(c.scheme, c.cr, c.client, c.Log))
+	RegisterRole(common.Worker, worker.NewRoleWorker(c.scheme, c.cr, c.client, c.Log))
+	RegisterRole(common.Master, master.NewRoleMaster(c.scheme, c.cr, c.client, c.Log))
 
 	for _, r := range roles {
 		res, err := r.ReconcileRole(ctx)

@@ -29,6 +29,7 @@ func NewReconcilePDB(
 			schema,
 			cr,
 			client,
+			"",
 			labels,
 			nil,
 		),
@@ -38,7 +39,7 @@ func NewReconcilePDB(
 	}
 }
 
-func (r *PDBReconciler) Build(_ ResourceBuilderData) (client.Object, error) {
+func (r *PDBReconciler) Build() (client.Object, error) {
 	obj := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.name,

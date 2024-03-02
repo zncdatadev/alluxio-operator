@@ -4,7 +4,6 @@ import (
 	"fmt"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +20,7 @@ func NewConfigMap(
 	scheme *runtime.Scheme,
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 ) *ConfigMapReconciler {
@@ -30,17 +30,18 @@ func NewConfigMap(
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg,
 		),
 	}
 }
 
-func (s *ConfigMapReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
+func (s *ConfigMapReconciler) Build() (client.Object, error) {
 	instance := s.Instance
-	groupName := data.GroupName
+	groupName := s.GroupName
 	masterRoleGroup := s.MergedCfg
-	workerCacheKey := createMasterGroupCacheKey(instance.GetName(), string(role.Worker), data.GroupName)
+	workerCacheKey := createMasterGroupCacheKey(instance.GetName(), string(common.Worker), s.GroupName)
 	workerRoleGroupObj, ok := common.MergedCache.Get(workerCacheKey)
 	if !ok {
 		return nil, fmt.Errorf("worker cache not found, key: %s", workerCacheKey)
@@ -128,7 +129,7 @@ func (s *ConfigMapReconciler) createAlluxioJavaOpts(
 	alluxioJavaOpts := make([]string, 0)
 
 	if isSingleMaster {
-		name := fmt.Sprintf("-Dalluxio.master.hostname=%s", createMasterStatefulSetName(instance.Name, string(role.Master), groupName)+"-0")
+		name := fmt.Sprintf("-Dalluxio.master.hostname=%s", createMasterStatefulSetName(instance.Name, string(common.Master), groupName)+"-0")
 		alluxioJavaOpts = append(alluxioJavaOpts, name)
 	}
 

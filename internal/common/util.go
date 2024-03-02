@@ -1,98 +1,10 @@
 package common
 
 import (
-	"context"
-	"fmt"
-	"github.com/cisco-open/k8s-objectmatcher/patch"
+	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
-
-var (
-	logger = ctrl.Log.WithName("util")
-)
-
-func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object) (bool, error) {
-	key := client.ObjectKeyFromObject(obj)
-	namespace := obj.GetNamespace()
-
-	kinds, _, _ := scheme.Scheme.ObjectKinds(obj)
-
-	name := obj.GetName()
-	current := obj.DeepCopyObject().(client.Object)
-	// Check if the object exists, if not create a new one
-	err := c.Get(ctx, key, current)
-	if errors.IsNotFound(err) {
-		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(obj); err != nil {
-			return false, err
-		}
-		logger.Info("Creating a new object", "Kind", kinds, "Namespace", namespace, "Name", name)
-
-		if err := c.Create(ctx, obj); err != nil {
-			return false, err
-		}
-		return true, nil
-	} else if err == nil {
-		switch obj.(type) {
-		case *corev1.Service:
-			currentSvc := current.(*corev1.Service)
-			svc := obj.(*corev1.Service)
-			// Preserve the ClusterIP when updating the service
-			svc.Spec.ClusterIP = currentSvc.Spec.ClusterIP
-			// Preserve the annotation when updating the service, ensure any updated annotation is preserved
-			//for key, value := range currentSvc.Annotations {
-			//	if _, present := svc.Annotations[key]; !present {
-			//		svc.Annotations[key] = value
-			//	}
-			//}
-
-			if svc.Spec.Type == corev1.ServiceTypeNodePort || svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
-				for i := range svc.Spec.Ports {
-					svc.Spec.Ports[i].NodePort = currentSvc.Spec.Ports[i].NodePort
-				}
-			}
-		}
-		result, err := patch.DefaultPatchMaker.Calculate(current, obj, patch.IgnoreStatusFields())
-		if err != nil {
-			logger.Error(err, "failed to calculate patch to match objects, moving on to update")
-			// if there is an error with matching, we still want to update
-			resourceVersion := current.(metav1.ObjectMetaAccessor).GetObjectMeta().GetResourceVersion()
-			obj.(metav1.ObjectMetaAccessor).GetObjectMeta().SetResourceVersion(resourceVersion)
-
-			if err := c.Update(ctx, obj); err != nil {
-				return false, err
-			}
-			return true, nil
-		}
-
-		if !result.IsEmpty() {
-			logger.Info(
-				fmt.Sprintf("Resource update for object %s:%s", kinds, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()),
-				"patch", string(result.Patch),
-			)
-
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(obj); err != nil {
-				logger.Error(err, "failed to annotate modified object", "object", obj)
-			}
-
-			resourceVersion := current.(metav1.ObjectMetaAccessor).GetObjectMeta().GetResourceVersion()
-			obj.(metav1.ObjectMetaAccessor).GetObjectMeta().SetResourceVersion(resourceVersion)
-
-			if err = c.Update(ctx, obj); err != nil {
-				return false, err
-			}
-			return true, nil
-		}
-
-		logger.V(1).Info(fmt.Sprintf("Skipping update for object %s:%s", kinds, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()))
-
-	}
-	return false, err
-}
 
 type ResourceNameGenerator struct {
 	InstanceName string
@@ -129,26 +41,18 @@ func (r *ResourceNameGenerator) GenerateResourceName(extraSuffix string) string 
 	return res
 }
 
-type Map map[string]string
-
-func (m *Map) MapMerge(source map[string]string, replace bool) {
-	if *m == nil {
-		*m = make(Map)
-	}
-	for sourceKey, sourceValue := range source {
-		if _, ok := map[string]string(*m)[sourceKey]; !ok || replace {
-			map[string]string(*m)[sourceKey] = sourceValue
-		}
-	}
-}
-
 // CreateMasterConfigMapName create configMap Name
 func CreateMasterConfigMapName(instanceName string, groupName string) string {
 	return NewResourceNameGenerator(instanceName, "", groupName).GenerateResourceName("config")
 }
 
-func OverrideEnvVars(origin []corev1.EnvVar, override map[string]string) {
-	for _, env := range origin {
+// CreateRoleGroupLoggingConfigMapName create role group logging config-map name
+func CreateRoleGroupLoggingConfigMapName(instanceName string, role string, groupName string) string {
+	return NewResourceNameGenerator(instanceName, role, groupName).GenerateResourceName("log4j")
+}
+
+func OverrideEnvVars(origin *[]corev1.EnvVar, override map[string]string) {
+	for _, env := range *origin {
 		// if env Name is in override, then override it
 		if value, ok := override[env.Name]; ok {
 			env.Value = value
@@ -160,4 +64,65 @@ func GetStorageClass(origin string) *string {
 		return nil
 	}
 	return &origin
+}
+func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
+	var (
+		cpuMin      = resource.MustParse("100m")
+		cpuMax      = resource.MustParse("500")
+		memoryLimit = resource.MustParse("1Gi")
+	)
+	if resources != nil {
+		if resources.CPU != nil && resources.CPU.Min != nil {
+			cpuMin = *resources.CPU.Min
+		}
+		if resources.CPU != nil && resources.CPU.Max != nil {
+			cpuMax = *resources.CPU.Max
+		}
+		if resources.Memory != nil && resources.Memory.Limit != nil {
+			memoryLimit = *resources.Memory.Limit
+		}
+	}
+	return &corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    cpuMax,
+			corev1.ResourceMemory: memoryLimit,
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    cpuMin,
+			corev1.ResourceMemory: memoryLimit,
+		},
+	}
+}
+
+// GetWorkerPorts get worker ports
+func GetWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.WorkerPortsSpec {
+	workerPorts := workerCfg.Config.Ports
+	if workerPorts == nil {
+		workerPorts = &stackv1alpha1.WorkerPortsSpec{
+			Web: stackv1alpha1.WorkerWebPort,
+			Rpc: stackv1alpha1.WorkerRpcPort,
+		}
+	}
+	return workerPorts
+}
+
+// GetJobWorkerPorts get job worker ports
+func GetJobWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.JobWorkerPortsSpec {
+	jobWorkerPorts := workerCfg.Config.JobWorker.Ports
+	if jobWorkerPorts == nil {
+		jobWorkerPorts = &stackv1alpha1.JobWorkerPortsSpec{
+			Web:  stackv1alpha1.JobWorkerWebPort,
+			Rpc:  stackv1alpha1.JobWorkerRpcPort,
+			Data: stackv1alpha1.JobWorkerDataPort,
+		}
+	}
+	return jobWorkerPorts
+}
+
+func GetJournal(cluster *stackv1alpha1.ClusterConfigSpec) *stackv1alpha1.JournalSpec {
+	if cluster.Journal == nil {
+		defaultJournal := cluster.GetJournal()
+		return &defaultJournal
+	}
+	return cluster.Journal
 }

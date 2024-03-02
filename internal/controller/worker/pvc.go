@@ -14,11 +14,12 @@ type PvcReconciler struct {
 	common.GeneralResourceStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.WorkerRoleGroupSpec]
 }
 
-// NewService New a Service
+// NewPvc NewService New a Service
 func NewPvc(
 	scheme *runtime.Scheme,
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.WorkerRoleGroupSpec,
 ) *PvcReconciler {
@@ -28,15 +29,16 @@ func NewPvc(
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg,
 		),
 	}
 }
 
-func (s *PvcReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
+func (s *PvcReconciler) Build() (client.Object, error) {
 	instance := s.Instance
-	roleGroupName := data.GroupName
+	roleGroupName := s.GroupName
 	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

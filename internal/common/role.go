@@ -1,10 +1,9 @@
-package role
+package common
 
 import (
 	"context"
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
-	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,7 +41,7 @@ type BaseRoleReconciler[R any] struct {
 }
 
 func (r *BaseRoleReconciler[R]) GetLabels(role Role) map[string]string {
-	roleLables := common.RoleLabels{Cr: r.Instance, Name: string(role)}
+	roleLables := RoleLabels{Cr: r.Instance, Name: string(role)}
 	mergeLabels := roleLables.GetLabels()
 	return mergeLabels
 }

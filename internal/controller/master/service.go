@@ -3,7 +3,6 @@ package master
 import (
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/controller/role"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,6 +18,7 @@ func NewService(
 	scheme *runtime.Scheme,
 	instance *stackv1alpha1.Alluxio,
 	client client.Client,
+	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 ) *ServiceReconciler {
@@ -28,17 +28,18 @@ func NewService(
 			scheme,
 			instance,
 			client,
+			groupName,
 			mergedLabels,
 			mergedCfg,
 		),
 	}
 }
 
-func (s *ServiceReconciler) Build(data common.ResourceBuilderData) (client.Object, error) {
+func (s *ServiceReconciler) Build() (client.Object, error) {
 	instance := s.Instance
 	mergedGroupCfg := s.MergedCfg
-	roleGroupName := data.GroupName
-	roleName := role.Master
+	roleGroupName := s.GroupName
+	roleName := common.Master
 	masterPorts := getMasterPorts(mergedGroupCfg)
 	jobMasterPorts := getJobMasterPorts(mergedGroupCfg)
 	svc := &corev1.Service{
