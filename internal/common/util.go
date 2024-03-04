@@ -1,7 +1,7 @@
 package common
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -65,7 +65,7 @@ func GetStorageClass(origin string) *string {
 	}
 	return &origin
 }
-func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
+func ConvertToResourceRequirements(resources *alluxiov1alpha1.ResourcesSpec) *corev1.ResourceRequirements {
 	var (
 		cpuMin      = resource.MustParse("100m")
 		cpuMax      = resource.MustParse("500")
@@ -95,31 +95,31 @@ func ConvertToResourceRequirements(resources *stackv1alpha1.ResourcesSpec) *core
 }
 
 // GetWorkerPorts get worker ports
-func GetWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.WorkerPortsSpec {
+func GetWorkerPorts(workerCfg *alluxiov1alpha1.WorkerRoleGroupSpec) *alluxiov1alpha1.WorkerPortsSpec {
 	workerPorts := workerCfg.Config.Ports
 	if workerPorts == nil {
-		workerPorts = &stackv1alpha1.WorkerPortsSpec{
-			Web: stackv1alpha1.WorkerWebPort,
-			Rpc: stackv1alpha1.WorkerRpcPort,
+		workerPorts = &alluxiov1alpha1.WorkerPortsSpec{
+			Web: alluxiov1alpha1.WorkerWebPort,
+			Rpc: alluxiov1alpha1.WorkerRpcPort,
 		}
 	}
 	return workerPorts
 }
 
 // GetJobWorkerPorts get job worker ports
-func GetJobWorkerPorts(workerCfg *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.JobWorkerPortsSpec {
+func GetJobWorkerPorts(workerCfg *alluxiov1alpha1.WorkerRoleGroupSpec) *alluxiov1alpha1.JobWorkerPortsSpec {
 	jobWorkerPorts := workerCfg.Config.JobWorker.Ports
 	if jobWorkerPorts == nil {
-		jobWorkerPorts = &stackv1alpha1.JobWorkerPortsSpec{
-			Web:  stackv1alpha1.JobWorkerWebPort,
-			Rpc:  stackv1alpha1.JobWorkerRpcPort,
-			Data: stackv1alpha1.JobWorkerDataPort,
+		jobWorkerPorts = &alluxiov1alpha1.JobWorkerPortsSpec{
+			Web:  alluxiov1alpha1.JobWorkerWebPort,
+			Rpc:  alluxiov1alpha1.JobWorkerRpcPort,
+			Data: alluxiov1alpha1.JobWorkerDataPort,
 		}
 	}
 	return jobWorkerPorts
 }
 
-func GetJournal(cluster *stackv1alpha1.ClusterConfigSpec) *stackv1alpha1.JournalSpec {
+func GetJournal(cluster *alluxiov1alpha1.ClusterConfigSpec) *alluxiov1alpha1.JournalSpec {
 	if cluster.Journal == nil {
 		defaultJournal := cluster.GetJournal()
 		return &defaultJournal

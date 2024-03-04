@@ -30,7 +30,7 @@ RETISTRY ?= quay.io/zncdata
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# zncdata.net/alluxio-operator-bundle:$VERSION and zncdata.net/alluxio-operator-catalog:$VERSION.
+# zncdata.dev/alluxio-operator-bundle:$VERSION and zncdata.dev/alluxio-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= $(RETISTRY)/alluxio-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.

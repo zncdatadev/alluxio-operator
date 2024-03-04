@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/operator-go/pkg/status"
 	utils "github.com/zncdata-labs/operator-go/pkg/util"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -36,9 +36,9 @@ type AlluxioClusterReconciler struct {
 	Log    logr.Logger
 }
 
-//+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=stack.zncdata.net,resources=alluxios/finalizers,verbs=update
+//+kubebuilder:rbac:groups=alluxio.zncdata.dev,resources=alluxioclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=alluxio.zncdata.dev,resources=alluxioclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=alluxio.zncdata.dev,resources=alluxioclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -59,7 +59,7 @@ func (r *AlluxioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	r.Log.Info("Reconciling AlluxioCluster")
 
-	alluxio := &stackv1alpha1.AlluxioCluster{}
+	alluxio := &alluxiov1alpha1.AlluxioCluster{}
 
 	if err := r.Get(ctx, req.NamespacedName, alluxio); err != nil {
 		if client.IgnoreNotFound(err) != nil {
@@ -98,6 +98,6 @@ func (r *AlluxioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // SetupWithManager sets up the controller with the Manager.
 func (r *AlluxioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&stackv1alpha1.AlluxioCluster{}).
+		For(&alluxiov1alpha1.AlluxioCluster{}).
 		Complete(r)
 }

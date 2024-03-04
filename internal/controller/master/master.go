@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"github.com/zncdata-labs/alluxio-operator/internal/util"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,17 +16,17 @@ import (
 // roleMaster reconciler
 
 type RoleMaster struct {
-	common.BaseRoleReconciler[*stackv1alpha1.MasterSpec]
+	common.BaseRoleReconciler[*alluxiov1alpha1.MasterSpec]
 }
 
 // NewRoleMaster new roleMaster
 func NewRoleMaster(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	log logr.Logger) *RoleMaster {
 	r := &RoleMaster{
-		BaseRoleReconciler: common.BaseRoleReconciler[*stackv1alpha1.MasterSpec]{
+		BaseRoleReconciler: common.BaseRoleReconciler[*alluxiov1alpha1.MasterSpec]{
 			Scheme:   scheme,
 			Instance: instance,
 			Client:   client,
@@ -75,7 +75,7 @@ func (r *RoleMaster) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 // RoleMasterGroup master role group reconcile
 type RoleMasterGroup struct {
 	Scheme     *runtime.Scheme
-	Instance   *stackv1alpha1.AlluxioCluster
+	Instance   *alluxiov1alpha1.AlluxioCluster
 	Client     client.Client
 	GroupName  string
 	RoleLabels map[string]string
@@ -84,7 +84,7 @@ type RoleMasterGroup struct {
 
 func NewRoleMasterGroup(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	roleLabels map[string]string,
@@ -107,9 +107,9 @@ func (m *RoleMasterGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	//1. reconcile master statefulset
 	//1. reconcile master service
 
-	//convert any to *stackv1alpha1.MasterRoleGroupSpec
+	//convert any to *alluxiov1alpha1.MasterRoleGroupSpec
 	mergedCfgObj := m.MergeGroupConfigSpec()
-	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.MasterRoleGroupSpec)
+	mergedGroupCfg := mergedCfgObj.(*alluxiov1alpha1.MasterRoleGroupSpec)
 	// cache it
 	common.MergedCache.Set(createMasterGroupCacheKey(m.Instance.GetName(), string(common.Master), m.GroupName),
 		mergedGroupCfg)
@@ -168,7 +168,7 @@ func (m *RoleMasterGroup) MergeGroupConfigSpec() any {
 }
 
 func (m *RoleMasterGroup) MergeLabels(mergedCfg any) map[string]string {
-	mergedMasterCfg := mergedCfg.(*stackv1alpha1.MasterRoleGroupSpec)
+	mergedMasterCfg := mergedCfg.(*alluxiov1alpha1.MasterRoleGroupSpec)
 	roleLabels := m.RoleLabels
 	mergeLabels := make(util.Map)
 	mergeLabels.MapMerge(roleLabels, true)
@@ -178,8 +178,8 @@ func (m *RoleMasterGroup) MergeLabels(mergedCfg any) map[string]string {
 }
 
 // mergeConfig merge the role's config into the role group's config
-func mergeConfig(masterRole *stackv1alpha1.MasterSpec,
-	group *stackv1alpha1.MasterRoleGroupSpec) *stackv1alpha1.MasterRoleGroupSpec {
+func mergeConfig(masterRole *alluxiov1alpha1.MasterSpec,
+	group *alluxiov1alpha1.MasterRoleGroupSpec) *alluxiov1alpha1.MasterRoleGroupSpec {
 	copiedRoleGroup := group.DeepCopy()
 	// Merge the role into the role group.
 	// if the role group has a config, and role group not has a config, will
@@ -194,7 +194,7 @@ func mergeConfig(masterRole *stackv1alpha1.MasterSpec,
 }
 
 type LogDataBuilder struct {
-	cfg *stackv1alpha1.MasterRoleGroupSpec
+	cfg *alluxiov1alpha1.MasterRoleGroupSpec
 }
 
 // MakeContainerLog4jData implement RoleLoggingDataBuilder

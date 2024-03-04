@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"github.com/zncdata-labs/alluxio-operator/internal/controller/master"
 	"github.com/zncdata-labs/alluxio-operator/internal/controller/worker"
@@ -22,11 +22,11 @@ func RegisterRole(role common.Role, roleReconciler common.RoleReconciler) {
 type ClusterReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
-	cr     *stackv1alpha1.AlluxioCluster
+	cr     *alluxiov1alpha1.AlluxioCluster
 	Log    logr.Logger
 }
 
-func NewClusterReconciler(client client.Client, scheme *runtime.Scheme, cr *stackv1alpha1.AlluxioCluster) *ClusterReconciler {
+func NewClusterReconciler(client client.Client, scheme *runtime.Scheme, cr *alluxiov1alpha1.AlluxioCluster) *ClusterReconciler {
 	return &ClusterReconciler{
 		client: client,
 		scheme: scheme,

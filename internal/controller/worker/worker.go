@@ -10,7 +10,7 @@ import (
 
 	"strings"
 
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -18,17 +18,17 @@ import (
 // roleWorker reconciler
 
 type RoleWorker struct {
-	common.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]
+	common.BaseRoleReconciler[*alluxiov1alpha1.WorkerSpec]
 }
 
 // NewRoleWorker new roleWorker
 func NewRoleWorker(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	log logr.Logger) *RoleWorker {
 	r := &RoleWorker{
-		BaseRoleReconciler: common.BaseRoleReconciler[*stackv1alpha1.WorkerSpec]{
+		BaseRoleReconciler: common.BaseRoleReconciler[*alluxiov1alpha1.WorkerSpec]{
 			Scheme:   scheme,
 			Instance: instance,
 			Client:   client,
@@ -83,7 +83,7 @@ func (r *RoleWorker) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 // RoleWorkerGroup worker role group reconcile
 type RoleWorkerGroup struct {
 	Scheme     *runtime.Scheme
-	Instance   *stackv1alpha1.AlluxioCluster
+	Instance   *alluxiov1alpha1.AlluxioCluster
 	Client     client.Client
 	GroupName  string
 	RoleLabels map[string]string
@@ -92,7 +92,7 @@ type RoleWorkerGroup struct {
 
 func NewRoleWorkerGroup(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	roleLables map[string]string,
@@ -115,9 +115,9 @@ func (m *RoleWorkerGroup) ReconcileGroup(ctx context.Context) (ctrl.Result, erro
 	//1. reconcile worker pvc
 	//1. reconcile worker deployment
 
-	//convert any to *stackv1alpha1.WorkerRoleGroupSpec
+	//convert any to *alluxiov1alpha1.WorkerRoleGroupSpec
 	mergedCfgObj := m.MergeGroupConfigSpec()
-	mergedGroupCfg := mergedCfgObj.(*stackv1alpha1.WorkerRoleGroupSpec)
+	mergedGroupCfg := mergedCfgObj.(*alluxiov1alpha1.WorkerRoleGroupSpec)
 	// cache it
 	common.MergedCache.Set(createWorkerGroupCacheKey(m.Instance.GetName(), string(common.Worker), m.GroupName),
 		mergedGroupCfg)
@@ -172,7 +172,7 @@ func (m *RoleWorkerGroup) MergeGroupConfigSpec() any {
 }
 
 func (m *RoleWorkerGroup) MergeLabels(mergedCfg any) map[string]string {
-	mergedWorkerCfg := mergedCfg.(*stackv1alpha1.WorkerRoleGroupSpec)
+	mergedWorkerCfg := mergedCfg.(*alluxiov1alpha1.WorkerRoleGroupSpec)
 	roleLabels := m.RoleLabels
 	mergeLabels := make(util.Map)
 	mergeLabels.MapMerge(roleLabels, true)
@@ -182,8 +182,8 @@ func (m *RoleWorkerGroup) MergeLabels(mergedCfg any) map[string]string {
 }
 
 // mergeConfig merge the role's config into the role group's config
-func mergeConfig(workerRole *stackv1alpha1.WorkerSpec,
-	group *stackv1alpha1.WorkerRoleGroupSpec) *stackv1alpha1.WorkerRoleGroupSpec {
+func mergeConfig(workerRole *alluxiov1alpha1.WorkerSpec,
+	group *alluxiov1alpha1.WorkerRoleGroupSpec) *alluxiov1alpha1.WorkerRoleGroupSpec {
 	copiedRoleGroup := group.DeepCopy()
 	// Merge the role into the role group.
 	// if the role group has a config, and role group not has a config, will
@@ -198,7 +198,7 @@ func mergeConfig(workerRole *stackv1alpha1.WorkerSpec,
 }
 
 type LogDataBuilder struct {
-	cfg *stackv1alpha1.WorkerRoleGroupSpec
+	cfg *alluxiov1alpha1.WorkerRoleGroupSpec
 }
 
 // MakeContainerLog4jData implement RoleLoggingDataBuilder

@@ -1,7 +1,7 @@
 package common
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -10,22 +10,22 @@ import (
 )
 
 type PDBReconciler struct {
-	BaseResourceReconciler[*stackv1alpha1.AlluxioCluster, any]
+	BaseResourceReconciler[*alluxiov1alpha1.AlluxioCluster, any]
 	name   string
 	labels map[string]string
-	pdb    *stackv1alpha1.PodDisruptionBudgetSpec
+	pdb    *alluxiov1alpha1.PodDisruptionBudgetSpec
 }
 
 func NewReconcilePDB(
 	client client.Client,
 	schema *runtime.Scheme,
-	cr *stackv1alpha1.AlluxioCluster,
+	cr *alluxiov1alpha1.AlluxioCluster,
 	labels map[string]string,
 	name string,
-	pdb *stackv1alpha1.PodDisruptionBudgetSpec,
+	pdb *alluxiov1alpha1.PodDisruptionBudgetSpec,
 ) *PDBReconciler {
 	return &PDBReconciler{
-		BaseResourceReconciler: *NewBaseResourceReconciler[*stackv1alpha1.AlluxioCluster, any](
+		BaseResourceReconciler: *NewBaseResourceReconciler[*alluxiov1alpha1.AlluxioCluster, any](
 			schema,
 			cr,
 			client,

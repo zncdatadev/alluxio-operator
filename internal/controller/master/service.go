@@ -1,7 +1,7 @@
 package master
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,21 +10,21 @@ import (
 )
 
 type ServiceReconciler struct {
-	common.GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
+	common.GeneralResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster, *alluxiov1alpha1.MasterRoleGroupSpec]
 }
 
 // NewService New a ServiceReconciler
 func NewService(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
+	mergedCfg *alluxiov1alpha1.MasterRoleGroupSpec,
 ) *ServiceReconciler {
 	return &ServiceReconciler{
-		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster,
-			*stackv1alpha1.MasterRoleGroupSpec](
+		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster,
+			*alluxiov1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
 			client,

@@ -1,7 +1,7 @@
 package common
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -228,7 +228,7 @@ type RoleLoggingDataBuilder interface {
 }
 
 type LoggingRecociler struct {
-	GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, any]
+	GeneralResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster, any]
 	RoleLoggingDataBuilder RoleLoggingDataBuilder
 	role                   Role
 }
@@ -236,7 +236,7 @@ type LoggingRecociler struct {
 // NewLoggingReconciler new logging reconcile
 func NewLoggingReconciler(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
@@ -245,7 +245,7 @@ func NewLoggingReconciler(
 	role Role,
 ) *LoggingRecociler {
 	return &LoggingRecociler{
-		GeneralResourceStyleReconciler: *NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, any](
+		GeneralResourceStyleReconciler: *NewGeneraResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster, any](
 			scheme,
 			instance,
 			client,
@@ -275,7 +275,7 @@ func (l *LoggingRecociler) Build() (client.Object, error) {
 	return obj, nil
 }
 
-func PropertiesValue(logger Logger, loggingConfig *stackv1alpha1.LoggingConfigSpec) string {
+func PropertiesValue(logger Logger, loggingConfig *alluxiov1alpha1.LoggingConfigSpec) string {
 	properties := make(map[string]string)
 	if loggingConfig.Loggers != nil {
 		for k, level := range loggingConfig.Loggers {

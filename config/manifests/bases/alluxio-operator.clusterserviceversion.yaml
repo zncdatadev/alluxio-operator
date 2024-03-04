@@ -10,10 +10,10 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: AlluxioCluster is the Schema for the alluxios API
+    - description: AlluxioClusterCluster is the Schema for the alluxioclusters API
       displayName: Alluxio Cluster
       kind: AlluxioCluster
-      name: alluxios.stack.zncdata.net
+      name: alluxioclusters.alluxio.zncdata.dev
       version: v1alpha1
   description: alluxio for operator
   displayName: alluxio-operator

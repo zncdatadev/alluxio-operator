@@ -1,12 +1,12 @@
 package common
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"strings"
 )
 
 type RoleLabels struct {
-	Cr   *stackv1alpha1.AlluxioCluster
+	Cr   *alluxiov1alpha1.AlluxioCluster
 	Name string
 }
 
