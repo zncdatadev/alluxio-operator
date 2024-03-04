@@ -281,7 +281,7 @@ func PropertiesValue(logger Logger, loggingConfig *stackv1alpha1.LoggingConfigSp
 		for k, level := range loggingConfig.Loggers {
 			if level != nil {
 				v := *level
-				properties["log4j.logger"+k] = v.Level
+				properties["log4j.logger."+k] = v.Level
 			}
 		}
 	}
@@ -308,6 +308,6 @@ func log4jProperties(properties map[string]string) string {
 func CreateLoggerConfigMapKey(logger Logger) string {
 	return string(logger) + ".log4j"
 }
-func CreateLog4jVolumeName() string {
+func Log4jVolumeName() string {
 	return "log4j"
 }

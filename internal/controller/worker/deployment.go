@@ -52,7 +52,7 @@ func (d *DeploymentReconciler) Build() (client.Object, error) {
 	needDomainSocketVolume := d.isNeedDomainSocketVolume(isShortCircuitEnabled)
 	envVars := d.createEnvVars(instance, d.MergedCfg)
 	envFrom := d.createEnvFrom(groupName)
-	volumes, volumeMounts := d.createVolumeMounts(needDomainSocketVolume, groupName, instance)
+	volumes, volumeMounts := d.createVolumesAndMounts(needDomainSocketVolume, groupName, instance)
 	image := instance.Spec.Image
 
 	//todo: webhook opt
@@ -97,11 +97,10 @@ func (d *DeploymentReconciler) Build() (client.Object, error) {
 									ContainerPort: workerPorts.Rpc,
 								},
 							},
-
 							Command:      []string{"tini", "--", "/entrypoint.sh"},
 							Args:         d.getWorkerArgs(),
 							Resources:    *common.ConvertToResourceRequirements(mergedConfigSpec.Resources),
-							VolumeMounts: volumeMounts,
+							VolumeMounts: d.createWorkerVolumeMounts(volumeMounts),
 						},
 						{
 							Name:            instance.GetNameWithSuffix("job-worker"),
@@ -126,7 +125,7 @@ func (d *DeploymentReconciler) Build() (client.Object, error) {
 							Command:      []string{"tini", "--", "/entrypoint.sh"},
 							Args:         d.getJobWorkerArgs(),
 							Resources:    *common.ConvertToResourceRequirements(mergedConfigSpec.JobWorker.Resources),
-							VolumeMounts: volumeMounts,
+							VolumeMounts: d.createJobWorkerVolumeMounts(volumeMounts),
 						},
 					},
 					Volumes: volumes,
@@ -205,33 +204,31 @@ func (d *DeploymentReconciler) RoleGroupConfig() *stackv1alpha1.WorkerConfigSpec
 	return d.MergedCfg.Config
 }
 
-func (d *DeploymentReconciler) EnabledLogging() bool {
+func (d *DeploymentReconciler) EnableWorkerLogging() bool {
 	return d.RoleGroupConfig() != nil &&
 		d.RoleGroupConfig().Logging != nil &&
 		d.RoleGroupConfig().Logging.Metastore != nil
 }
 
+// EnableJobWorkerLogging is job worker enabled logging
+func (d *DeploymentReconciler) EnableJobWorkerLogging() bool {
+	return d.MergedCfg.Config.JobWorker.Logging != nil && d.MergedCfg.Config.JobWorker.Logging.Metastore != nil
+}
+
 func (d *DeploymentReconciler) LogOverride(resource client.Object) {
 	statefulSet := resource.(*appsv1.Deployment)
 	volumes := statefulSet.Spec.Template.Spec.Volumes
-	if d.EnabledLogging() {
+	keyToPath := d.createWorkerVolumeKeyToPath()
+	if len(keyToPath) > 0 {
 		log4jVolume := corev1.Volume{
-			Name: common.CreateLog4jVolumeName(),
+			Name: common.Log4jVolumeName(),
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: common.CreateRoleGroupLoggingConfigMapName(d.Instance.GetName(), string(common.Master), d.GroupName),
+						Name: common.CreateRoleGroupLoggingConfigMapName(d.Instance.GetName(), string(common.Worker),
+							d.GroupName),
 					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  common.CreateLoggerConfigMapKey(common.WorkerLogger),
-							Path: common.Log4jCfgName,
-						},
-						{
-							Key:  common.CreateLoggerConfigMapKey(common.JobWorkerLogger),
-							Path: common.Log4jCfgName,
-						},
-					},
+					Items: keyToPath,
 				},
 			},
 		}
@@ -308,7 +305,7 @@ func (d *DeploymentReconciler) createEnvVars(
 }
 
 // create volumes and volume mounts
-func (d *DeploymentReconciler) createVolumeMounts(
+func (d *DeploymentReconciler) createVolumesAndMounts(
 	needDomainSocketVolume bool,
 	groupName string, instance *stackv1alpha1.Alluxio) ([]corev1.Volume, []corev1.VolumeMount) {
 	volumes := MakeTieredStoreVolumes(instance)
@@ -318,4 +315,34 @@ func (d *DeploymentReconciler) createVolumeMounts(
 		volumeMounts = append(MakeShortCircuitVolumeMounts(), volumeMounts...)
 	}
 	return volumes, volumeMounts
+}
+
+func (d *DeploymentReconciler) createWorkerVolumeMounts(exists []corev1.VolumeMount) []corev1.VolumeMount {
+	if d.EnableWorkerLogging() {
+		exists = append(exists, common.CreateAlluxioLoggerVolumeMounts())
+	}
+	return exists
+}
+
+func (d *DeploymentReconciler) createJobWorkerVolumeMounts(exists []corev1.VolumeMount) []corev1.VolumeMount {
+	if d.EnableJobWorkerLogging() {
+		exists = append(exists, common.CreateAlluxioLoggerVolumeMounts())
+	}
+	return exists
+}
+func (d *DeploymentReconciler) createWorkerVolumeKeyToPath() []corev1.KeyToPath {
+	var res []corev1.KeyToPath
+	if d.EnableWorkerLogging() {
+		res = append(res, corev1.KeyToPath{
+			Key:  common.CreateLoggerConfigMapKey(common.WorkerLogger),
+			Path: common.Log4jCfgName,
+		})
+	}
+	if d.EnableJobWorkerLogging() {
+		res = append(res, corev1.KeyToPath{
+			Key:  common.CreateLoggerConfigMapKey(common.JobWorkerLogger),
+			Path: common.Log4jCfgName,
+		})
+	}
+	return res
 }
