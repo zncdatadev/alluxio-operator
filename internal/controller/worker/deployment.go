@@ -1,7 +1,7 @@
 package worker
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,22 +11,22 @@ import (
 )
 
 type DeploymentReconciler struct {
-	common.DeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.WorkerRoleGroupSpec]
+	common.DeploymentStyleReconciler[*alluxiov1alpha1.AlluxioCluster, *alluxiov1alpha1.WorkerRoleGroupSpec]
 }
 
 // NewDeployment New a StatefulSet
 func NewDeployment(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.WorkerRoleGroupSpec,
+	mergedCfg *alluxiov1alpha1.WorkerRoleGroupSpec,
 	replicas int32,
 ) *DeploymentReconciler {
 	return &DeploymentReconciler{
-		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster,
-			*stackv1alpha1.WorkerRoleGroupSpec](
+		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*alluxiov1alpha1.AlluxioCluster,
+			*alluxiov1alpha1.WorkerRoleGroupSpec](
 			scheme,
 			instance,
 			client,
@@ -200,7 +200,7 @@ func (d *DeploymentReconciler) EnvOverride(obj client.Object) {
 	}
 }
 
-func (d *DeploymentReconciler) RoleGroupConfig() *stackv1alpha1.WorkerConfigSpec {
+func (d *DeploymentReconciler) RoleGroupConfig() *alluxiov1alpha1.WorkerConfigSpec {
 	return d.MergedCfg.Config
 }
 
@@ -262,8 +262,8 @@ func (d *DeploymentReconciler) createEnvFrom(groupName string) []corev1.EnvFromS
 
 // create env vars
 func (d *DeploymentReconciler) createEnvVars(
-	instance *stackv1alpha1.AlluxioCluster,
-	mergedGroupCfg *stackv1alpha1.WorkerRoleGroupSpec) []corev1.EnvVar {
+	instance *alluxiov1alpha1.AlluxioCluster,
+	mergedGroupCfg *alluxiov1alpha1.WorkerRoleGroupSpec) []corev1.EnvVar {
 	var envVars []corev1.EnvVar
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "ALLUXIO_WORKER_HOSTNAME",
@@ -307,7 +307,7 @@ func (d *DeploymentReconciler) createEnvVars(
 // create volumes and volume mounts
 func (d *DeploymentReconciler) createVolumesAndMounts(
 	needDomainSocketVolume bool,
-	groupName string, instance *stackv1alpha1.AlluxioCluster) ([]corev1.Volume, []corev1.VolumeMount) {
+	groupName string, instance *alluxiov1alpha1.AlluxioCluster) ([]corev1.Volume, []corev1.VolumeMount) {
 	volumes := MakeTieredStoreVolumes(instance)
 	volumeMounts := MakeTieredStoreVolumeMounts(instance)
 	if needDomainSocketVolume {

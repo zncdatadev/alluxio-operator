@@ -1,4 +1,4 @@
-apiVersion: stack.zncdata.net/v1alpha1
+apiVersion: alluxio.zncdata.dev/v1alpha1
 kind: AlluxioCluster
 metadata:
   labels:

@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: alluxioclusters.stack.zncdata.net
+  name: alluxioclusters.alluxio.zncdata.dev
 spec:
-  group: stack.zncdata.net
+  group: alluxio.zncdata.dev
   names:
     kind: AlluxioCluster
     listKind: AlluxioClusterList

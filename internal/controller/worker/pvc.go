@@ -1,7 +1,7 @@
 package worker
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
@@ -11,21 +11,21 @@ import (
 )
 
 type PvcReconciler struct {
-	common.GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.WorkerRoleGroupSpec]
+	common.GeneralResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster, *alluxiov1alpha1.WorkerRoleGroupSpec]
 }
 
 // NewPvc NewService New a Service
 func NewPvc(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.WorkerRoleGroupSpec,
+	mergedCfg *alluxiov1alpha1.WorkerRoleGroupSpec,
 ) *PvcReconciler {
 	return &PvcReconciler{
-		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster,
-			*stackv1alpha1.WorkerRoleGroupSpec](
+		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*alluxiov1alpha1.AlluxioCluster,
+			*alluxiov1alpha1.WorkerRoleGroupSpec](
 			scheme,
 			instance,
 			client,

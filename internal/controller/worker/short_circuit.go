@@ -1,12 +1,12 @@
 package worker
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-func VolumeSourceFromShortCircuit(shortCircuit stackv1alpha1.ShortCircuitSpec, roleGroupName string) corev1.VolumeSource {
+func VolumeSourceFromShortCircuit(shortCircuit alluxiov1alpha1.ShortCircuitSpec, roleGroupName string) corev1.VolumeSource {
 	switch shortCircuit.VolumeType {
 
 	case "hostPath":
@@ -18,7 +18,7 @@ func VolumeSourceFromShortCircuit(shortCircuit stackv1alpha1.ShortCircuitSpec, r
 	}
 }
 
-func MakeShortCircuitVolumes(instance *stackv1alpha1.AlluxioCluster, roleGroupName string) []corev1.Volume {
+func MakeShortCircuitVolumes(instance *alluxiov1alpha1.AlluxioCluster, roleGroupName string) []corev1.Volume {
 	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 	var volumes []corev1.Volume
 	volume := corev1.Volume{

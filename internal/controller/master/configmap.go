@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,21 +13,21 @@ import (
 )
 
 type ConfigMapReconciler struct {
-	common.ConfigurationStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
+	common.ConfigurationStyleReconciler[*alluxiov1alpha1.AlluxioCluster, *alluxiov1alpha1.MasterRoleGroupSpec]
 }
 
 // NewConfigMap new a ConfigMapReconcile
 func NewConfigMap(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
+	mergedCfg *alluxiov1alpha1.MasterRoleGroupSpec,
 ) *ConfigMapReconciler {
 	return &ConfigMapReconciler{
-		ConfigurationStyleReconciler: *common.NewConfigurationStyleReconciler[*stackv1alpha1.AlluxioCluster,
-			*stackv1alpha1.MasterRoleGroupSpec](
+		ConfigurationStyleReconciler: *common.NewConfigurationStyleReconciler[*alluxiov1alpha1.AlluxioCluster,
+			*alluxiov1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
 			client,
@@ -47,7 +47,7 @@ func (s *ConfigMapReconciler) Build() (client.Object, error) {
 	if !ok {
 		return nil, fmt.Errorf("worker cache not found, key: %s", workerCacheKey)
 	}
-	workerRoleGroup := workerRoleGroupObj.(*stackv1alpha1.WorkerRoleGroupSpec)
+	workerRoleGroup := workerRoleGroupObj.(*alluxiov1alpha1.WorkerRoleGroupSpec)
 	journal := instance.Spec.ClusterConfig.GetJournal()
 	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 
@@ -100,7 +100,7 @@ func (s *ConfigMapReconciler) ConfigurationOverride(origin client.Object) {
 }
 
 // count master amount
-func (s *ConfigMapReconciler) countMasterAmount(masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec) int32 {
+func (s *ConfigMapReconciler) countMasterAmount(masterRoleGroup *alluxiov1alpha1.MasterRoleGroupSpec) int32 {
 	if masterRoleGroup != nil && masterRoleGroup.Replicas != 0 {
 		return masterRoleGroup.Replicas
 	}
@@ -113,18 +113,18 @@ func (s *ConfigMapReconciler) isSingleMaster(masterCount int32) bool {
 }
 
 // is ha embedded
-func (s *ConfigMapReconciler) isHaEmbedded(journal *stackv1alpha1.JournalSpec, masterCount int32) bool {
+func (s *ConfigMapReconciler) isHaEmbedded(journal *alluxiov1alpha1.JournalSpec, masterCount int32) bool {
 	return journal.Type == "EMBEDDED" && masterCount > 1
 }
 
 // create ALLUXIO_JAVA_OPTS
 func (s *ConfigMapReconciler) createAlluxioJavaOpts(
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	groupName string,
 	MasterCount int32,
 	isSingleMaster bool,
 	isHaEmbedded bool,
-	journal *stackv1alpha1.JournalSpec,
+	journal *alluxiov1alpha1.JournalSpec,
 ) string {
 	// ALLUXIO_JAVA_OPTS
 	alluxioJavaOpts := make([]string, 0)
@@ -163,7 +163,7 @@ func (s *ConfigMapReconciler) createAlluxioJavaOpts(
 
 // create ALLUXIO_MASTER_JAVA_OPTS
 func (s *ConfigMapReconciler) createMasterJavaOpts(
-	masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec,
+	masterRoleGroup *alluxiov1alpha1.MasterRoleGroupSpec,
 ) string {
 	masterJavaOpts := make([]string, 0)
 	masterJavaOpts = append(masterJavaOpts, "-Dalluxio.master.hostname=${ALLUXIO_MASTER_HOSTNAME}")
@@ -182,7 +182,7 @@ func (s *ConfigMapReconciler) createMasterJavaOpts(
 
 // create ALLUXIO_JOB_MASTER_JAVA_OPTS
 func (s *ConfigMapReconciler) createJobMasterJavaOpts(
-	masterRoleGroup *stackv1alpha1.MasterRoleGroupSpec,
+	masterRoleGroup *alluxiov1alpha1.MasterRoleGroupSpec,
 ) string {
 	jobMasterJavaOpts := make([]string, 0)
 	jobMasterJavaOpts = append(jobMasterJavaOpts, "-Dalluxio.job.master.hostname=${ALLUXIO_JOB_MASTER_HOSTNAME}")
@@ -201,9 +201,9 @@ func (s *ConfigMapReconciler) createJobMasterJavaOpts(
 
 // create ALLUXIO_WORKER_JAVA_OPTS
 func (s *ConfigMapReconciler) createWorkerJavaOpts(
-	workerRoleGroup *stackv1alpha1.WorkerRoleGroupSpec,
-	shortCircuit *stackv1alpha1.ShortCircuitSpec,
-	instance *stackv1alpha1.AlluxioCluster,
+	workerRoleGroup *alluxiov1alpha1.WorkerRoleGroupSpec,
+	shortCircuit *alluxiov1alpha1.ShortCircuitSpec,
+	instance *alluxiov1alpha1.AlluxioCluster,
 ) string {
 	workerJavaOpts := make([]string, 0)
 	workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")
@@ -270,7 +270,7 @@ func (s *ConfigMapReconciler) createWorkerJavaOpts(
 
 // create ALLUXIO_JOB_WORKER_JAVA_OPTS
 func (s *ConfigMapReconciler) createJobWorkerJavaOpts(
-	workerRoleGroup *stackv1alpha1.WorkerRoleGroupSpec,
+	workerRoleGroup *alluxiov1alpha1.WorkerRoleGroupSpec,
 ) string {
 	jobWorkerJavaOpts := make([]string, 0)
 

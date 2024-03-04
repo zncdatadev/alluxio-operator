@@ -1,7 +1,7 @@
 package master
 
 import (
-	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,22 +12,22 @@ import (
 )
 
 type StatefulSetReconciler struct {
-	common.DeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
+	common.DeploymentStyleReconciler[*alluxiov1alpha1.AlluxioCluster, *alluxiov1alpha1.MasterRoleGroupSpec]
 }
 
 // NewStatefulSet New a StatefulSetReconciler
 func NewStatefulSet(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.AlluxioCluster,
+	instance *alluxiov1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
-	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
+	mergedCfg *alluxiov1alpha1.MasterRoleGroupSpec,
 	replicas int32,
 ) *StatefulSetReconciler {
 	return &StatefulSetReconciler{
-		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster,
-			*stackv1alpha1.MasterRoleGroupSpec](
+		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*alluxiov1alpha1.AlluxioCluster,
+			*alluxiov1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
 			client,
@@ -106,7 +106,7 @@ func (s *StatefulSetReconciler) createVolumeKeyToPath() []corev1.KeyToPath {
 	return res
 }
 
-func (s *StatefulSetReconciler) RoleGroupConfig() *stackv1alpha1.MasterConfigSpec {
+func (s *StatefulSetReconciler) RoleGroupConfig() *alluxiov1alpha1.MasterConfigSpec {
 	return s.MergedCfg.Config
 }
 
@@ -201,7 +201,7 @@ func (s *StatefulSetReconciler) schedulePod(obj *appsv1.StatefulSet) {
 	}
 }
 
-func (s *StatefulSetReconciler) getMasterCmdArgs(cfg *stackv1alpha1.MasterRoleGroupSpec) []string {
+func (s *StatefulSetReconciler) getMasterCmdArgs(cfg *alluxiov1alpha1.MasterRoleGroupSpec) []string {
 	args := cfg.Config.Args
 	if len(args) == 0 {
 		return []string{"master-only", "--no-format"}
@@ -209,7 +209,7 @@ func (s *StatefulSetReconciler) getMasterCmdArgs(cfg *stackv1alpha1.MasterRoleGr
 	return args
 }
 
-func (s *StatefulSetReconciler) getJobMasterCmdArgs(cfg *stackv1alpha1.MasterRoleGroupSpec) []string {
+func (s *StatefulSetReconciler) getJobMasterCmdArgs(cfg *alluxiov1alpha1.MasterRoleGroupSpec) []string {
 	args := cfg.Config.JobMaster.Args
 	if len(args) == 0 {
 		return []string{"job-master"}
@@ -218,7 +218,7 @@ func (s *StatefulSetReconciler) getJobMasterCmdArgs(cfg *stackv1alpha1.MasterRol
 }
 
 // isUfsLocal is UFS local based on Journal's type and UfsType
-func isUfsLocal(clusterCfg *stackv1alpha1.ClusterConfigSpec) bool {
+func isUfsLocal(clusterCfg *alluxiov1alpha1.ClusterConfigSpec) bool {
 	if clusterCfg.GetJournal().Type == "UFS" && clusterCfg.GetJournal().UfsType == "local" {
 		return true
 	}
@@ -226,12 +226,12 @@ func isUfsLocal(clusterCfg *stackv1alpha1.ClusterConfigSpec) bool {
 }
 
 // is Embedded based on Journal's type
-func isEmbedded(clusterCfg *stackv1alpha1.ClusterConfigSpec) bool {
+func isEmbedded(clusterCfg *alluxiov1alpha1.ClusterConfigSpec) bool {
 	return clusterCfg.GetJournal().Type == "EMBEDDED"
 }
 
 // isSingleMaster based on Replicas
-func isSingleMaster(mergedGroupCfg *stackv1alpha1.MasterRoleGroupSpec) bool {
+func isSingleMaster(mergedGroupCfg *alluxiov1alpha1.MasterRoleGroupSpec) bool {
 	return mergedGroupCfg.Replicas == 1
 }
 
@@ -267,7 +267,7 @@ func (s *StatefulSetReconciler) createJobMasterVolumeMounts() []corev1.VolumeMou
 }
 
 // create and add volumeMount if needJournalVolume is true
-func (s *StatefulSetReconciler) createMasterVolumeMount(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) []corev1.VolumeMount {
+func (s *StatefulSetReconciler) createMasterVolumeMount(needJournalVolume bool, journal *alluxiov1alpha1.JournalSpec) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
 	if needJournalVolume {
 		vm := corev1.VolumeMount{
@@ -284,7 +284,7 @@ func (s *StatefulSetReconciler) createMasterVolumeMount(needJournalVolume bool, 
 }
 
 // Create and add volume if needJournalVolume is true and VolumeType is "emptyDir"
-func createVolumes(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) []corev1.Volume {
+func createVolumes(needJournalVolume bool, journal *alluxiov1alpha1.JournalSpec) []corev1.Volume {
 	var volumes []corev1.Volume
 	if needJournalVolume && journal.VolumeType == "emptyDir" {
 		volume := corev1.Volume{
@@ -299,7 +299,7 @@ func createVolumes(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) [
 }
 
 // Create and add PersistentVolumeClaim if needJournalVolume is true and VolumeType is "persistentVolumeClaim"
-func createVolumeClaimTemplates(needJournalVolume bool, journal *stackv1alpha1.JournalSpec) []corev1.PersistentVolumeClaim {
+func createVolumeClaimTemplates(needJournalVolume bool, journal *alluxiov1alpha1.JournalSpec) []corev1.PersistentVolumeClaim {
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	if needJournalVolume && journal.VolumeType == "persistentVolumeClaim" {
 		accessMode := corev1.PersistentVolumeAccessMode(journal.AccessMode)
@@ -326,7 +326,7 @@ func createVolumeClaimTemplates(needJournalVolume bool, journal *stackv1alpha1.J
 func (s *StatefulSetReconciler) createEnvVars(
 	isHaEmbedded bool,
 	isSingleMaster bool,
-	mergedGroupCfg *stackv1alpha1.MasterRoleGroupSpec) []corev1.EnvVar {
+	mergedGroupCfg *alluxiov1alpha1.MasterRoleGroupSpec) []corev1.EnvVar {
 	var envVarsMap = make(map[string]string)
 	var envVars []corev1.EnvVar
 	if isHaEmbedded {
@@ -364,7 +364,7 @@ func (s *StatefulSetReconciler) createEnvVars(
 }
 
 // create env from
-func createEnvFrom(instance *stackv1alpha1.AlluxioCluster, groupName string) []corev1.EnvFromSource {
+func createEnvFrom(instance *alluxiov1alpha1.AlluxioCluster, groupName string) []corev1.EnvFromSource {
 	var envFrom []corev1.EnvFromSource
 	envFrom = append(envFrom, corev1.EnvFromSource{
 		ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -377,7 +377,7 @@ func createEnvFrom(instance *stackv1alpha1.AlluxioCluster, groupName string) []c
 }
 
 // create master ports
-func createMasterPorts(mergedConfigSpec *stackv1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
+func createMasterPorts(mergedConfigSpec *alluxiov1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
 	materPort := getMasterPorts(mergedConfigSpec)
 	masterPorts := []corev1.ContainerPort{
 		{
@@ -399,7 +399,7 @@ func createMasterPorts(mergedConfigSpec *stackv1alpha1.MasterRoleGroupSpec, isHa
 }
 
 // create job master ports
-func createJobMasterPorts(mergedConfigSpec *stackv1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
+func createJobMasterPorts(mergedConfigSpec *alluxiov1alpha1.MasterRoleGroupSpec, isHaEmbedded bool) []corev1.ContainerPort {
 	jobMasterPort := getJobMasterPorts(mergedConfigSpec)
 	jobMasterPorts := []corev1.ContainerPort{
 		{

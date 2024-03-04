@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- stack_v1alpha1_alluxiocluster.yaml
+- alluxio_v1alpha1_alluxiocluster.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
