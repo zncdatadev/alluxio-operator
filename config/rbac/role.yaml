@@ -1,4 +1,3 @@
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -74,7 +73,7 @@ rules:
 - apiGroups:
   - stack.zncdata.net
   resources:
-  - alluxios
+  - alluxioclusters
   verbs:
   - create
   - delete
@@ -86,13 +85,13 @@ rules:
 - apiGroups:
   - stack.zncdata.net
   resources:
-  - alluxios/finalizers
+  - alluxioclusters/finalizers
   verbs:
   - update
 - apiGroups:
   - stack.zncdata.net
   resources:
-  - alluxios/status
+  - alluxioclusters/status
   verbs:
   - get
   - patch

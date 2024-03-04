@@ -10,9 +10,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Alluxio is the Schema for the alluxios API
-      displayName: Alluxio
-      kind: Alluxio
+    - description: AlluxioCluster is the Schema for the alluxios API
+      displayName: Alluxio Cluster
+      kind: AlluxioCluster
       name: alluxios.stack.zncdata.net
       version: v1alpha1
   description: alluxio for operator
@@ -37,7 +37,7 @@ spec:
   - alluxio
   - k8s
   links:
-  - name: Alluxio Operator
+  - name: AlluxioCluster Operator
     url: https://alluxio-operator.domain
   maturity: alpha
   provider:

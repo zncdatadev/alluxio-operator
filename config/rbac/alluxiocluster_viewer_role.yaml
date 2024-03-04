@@ -1,31 +1,27 @@
-# permissions for end users to edit alluxios.
+# permissions for end users to view alluxioclusters.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: alluxio-editor-role
+    app.kubernetes.io/instance: alluxiocluster-viewer-role
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: alluxio-operator
     app.kubernetes.io/part-of: alluxio-operator
     app.kubernetes.io/managed-by: kustomize
-  name: alluxio-editor-role
+  name: alluxiocluster-viewer-role
 rules:
 - apiGroups:
   - stack.zncdata.net
   resources:
-  - alluxios
+  - alluxioclusters
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - stack.zncdata.net
   resources:
-  - alluxios/status
+  - alluxioclusters/status
   verbs:
   - get

@@ -12,13 +12,13 @@ import (
 )
 
 type StatefulSetReconciler struct {
-	common.DeploymentStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.MasterRoleGroupSpec]
+	common.DeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
 }
 
 // NewStatefulSet New a StatefulSetReconciler
 func NewStatefulSet(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
@@ -26,7 +26,7 @@ func NewStatefulSet(
 	replicas int32,
 ) *StatefulSetReconciler {
 	return &StatefulSetReconciler{
-		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.Alluxio,
+		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster,
 			*stackv1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
@@ -364,7 +364,7 @@ func (s *StatefulSetReconciler) createEnvVars(
 }
 
 // create env from
-func createEnvFrom(instance *stackv1alpha1.Alluxio, groupName string) []corev1.EnvFromSource {
+func createEnvFrom(instance *stackv1alpha1.AlluxioCluster, groupName string) []corev1.EnvFromSource {
 	var envFrom []corev1.EnvFromSource
 	envFrom = append(envFrom, corev1.EnvFromSource{
 		ConfigMapRef: &corev1.ConfigMapEnvSource{

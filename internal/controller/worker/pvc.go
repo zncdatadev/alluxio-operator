@@ -11,20 +11,20 @@ import (
 )
 
 type PvcReconciler struct {
-	common.GeneralResourceStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.WorkerRoleGroupSpec]
+	common.GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.WorkerRoleGroupSpec]
 }
 
 // NewPvc NewService New a Service
 func NewPvc(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.WorkerRoleGroupSpec,
 ) *PvcReconciler {
 	return &PvcReconciler{
-		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.Alluxio,
+		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster,
 			*stackv1alpha1.WorkerRoleGroupSpec](
 			scheme,
 			instance,

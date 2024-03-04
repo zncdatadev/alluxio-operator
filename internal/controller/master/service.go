@@ -10,20 +10,20 @@ import (
 )
 
 type ServiceReconciler struct {
-	common.GeneralResourceStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.MasterRoleGroupSpec]
+	common.GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
 }
 
 // NewService New a ServiceReconciler
 func NewService(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 ) *ServiceReconciler {
 	return &ServiceReconciler{
-		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.Alluxio,
+		GeneralResourceStyleReconciler: *common.NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster,
 			*stackv1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,

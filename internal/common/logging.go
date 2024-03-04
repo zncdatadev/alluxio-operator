@@ -228,7 +228,7 @@ type RoleLoggingDataBuilder interface {
 }
 
 type LoggingRecociler struct {
-	GeneralResourceStyleReconciler[*stackv1alpha1.Alluxio, any]
+	GeneralResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, any]
 	RoleLoggingDataBuilder RoleLoggingDataBuilder
 	role                   Role
 }
@@ -236,7 +236,7 @@ type LoggingRecociler struct {
 // NewLoggingReconciler new logging reconcile
 func NewLoggingReconciler(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
@@ -245,7 +245,7 @@ func NewLoggingReconciler(
 	role Role,
 ) *LoggingRecociler {
 	return &LoggingRecociler{
-		GeneralResourceStyleReconciler: *NewGeneraResourceStyleReconciler[*stackv1alpha1.Alluxio, any](
+		GeneralResourceStyleReconciler: *NewGeneraResourceStyleReconciler[*stackv1alpha1.AlluxioCluster, any](
 			scheme,
 			instance,
 			client,

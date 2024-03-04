@@ -6,7 +6,7 @@ import (
 )
 
 type RoleLabels struct {
-	Cr   *stackv1alpha1.Alluxio
+	Cr   *stackv1alpha1.AlluxioCluster
 	Name string
 }
 

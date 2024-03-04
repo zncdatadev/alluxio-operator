@@ -11,13 +11,13 @@ import (
 )
 
 type DeploymentReconciler struct {
-	common.DeploymentStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.WorkerRoleGroupSpec]
+	common.DeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.WorkerRoleGroupSpec]
 }
 
 // NewDeployment New a StatefulSet
 func NewDeployment(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
@@ -25,7 +25,7 @@ func NewDeployment(
 	replicas int32,
 ) *DeploymentReconciler {
 	return &DeploymentReconciler{
-		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.Alluxio,
+		DeploymentStyleReconciler: *common.NewDeploymentStyleReconciler[*stackv1alpha1.AlluxioCluster,
 			*stackv1alpha1.WorkerRoleGroupSpec](
 			scheme,
 			instance,
@@ -262,7 +262,7 @@ func (d *DeploymentReconciler) createEnvFrom(groupName string) []corev1.EnvFromS
 
 // create env vars
 func (d *DeploymentReconciler) createEnvVars(
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	mergedGroupCfg *stackv1alpha1.WorkerRoleGroupSpec) []corev1.EnvVar {
 	var envVars []corev1.EnvVar
 	envVars = append(envVars, corev1.EnvVar{
@@ -307,7 +307,7 @@ func (d *DeploymentReconciler) createEnvVars(
 // create volumes and volume mounts
 func (d *DeploymentReconciler) createVolumesAndMounts(
 	needDomainSocketVolume bool,
-	groupName string, instance *stackv1alpha1.Alluxio) ([]corev1.Volume, []corev1.VolumeMount) {
+	groupName string, instance *stackv1alpha1.AlluxioCluster) ([]corev1.Volume, []corev1.VolumeMount) {
 	volumes := MakeTieredStoreVolumes(instance)
 	volumeMounts := MakeTieredStoreVolumeMounts(instance)
 	if needDomainSocketVolume {
