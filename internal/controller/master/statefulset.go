@@ -70,25 +70,17 @@ func (s *StatefulSetReconciler) EnvOverride(obj client.Object) {
 // LogOverride only deployment and statefulset need to implement this method
 func (s *StatefulSetReconciler) LogOverride(resource client.Object) {
 	statefulSet := resource.(*appsv1.StatefulSet)
-	volumes := statefulSet.Spec.Template.Spec.Volumes
-	if s.EnabledLogging() {
+	keyToPath := s.createVolumeKeyToPath()
+	if len(keyToPath) > 0 {
+		volumes := statefulSet.Spec.Template.Spec.Volumes
 		log4jVolume := corev1.Volume{
-			Name: common.CreateLog4jVolumeName(),
+			Name: common.Log4jVolumeName(),
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: common.CreateRoleGroupLoggingConfigMapName(s.Instance.GetName(), string(common.Master), s.GroupName),
 					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  common.CreateLoggerConfigMapKey(common.MasterLogger),
-							Path: common.Log4jCfgName,
-						},
-						{
-							Key:  common.CreateLoggerConfigMapKey(common.JobMasterLogger),
-							Path: common.Log4jCfgName,
-						},
-					},
+					Items: s.createVolumeKeyToPath(),
 				},
 			},
 		}
@@ -97,11 +89,28 @@ func (s *StatefulSetReconciler) LogOverride(resource client.Object) {
 	}
 }
 
+func (s *StatefulSetReconciler) createVolumeKeyToPath() []corev1.KeyToPath {
+	var res []corev1.KeyToPath
+	if s.EnabledMasterLogging() {
+		res = append(res, corev1.KeyToPath{
+			Key:  common.CreateLoggerConfigMapKey(common.MasterLogger),
+			Path: common.Log4jCfgName,
+		})
+	}
+	if s.EnableJobMasterLogging() {
+		res = append(res, corev1.KeyToPath{
+			Key:  common.CreateLoggerConfigMapKey(common.JobMasterLogger),
+			Path: common.Log4jCfgName,
+		})
+	}
+	return res
+}
+
 func (s *StatefulSetReconciler) RoleGroupConfig() *stackv1alpha1.MasterConfigSpec {
 	return s.MergedCfg.Config
 }
 
-func (s *StatefulSetReconciler) EnabledLogging() bool {
+func (s *StatefulSetReconciler) EnabledMasterLogging() bool {
 	return s.RoleGroupConfig() != nil &&
 		s.RoleGroupConfig().Logging != nil &&
 		s.RoleGroupConfig().Logging.Metastore != nil
@@ -242,20 +251,16 @@ func isHaEmbedded(isEmbedded bool, replicas int32) bool {
 	return false
 }
 
-// is job master enabled logging
-func (s *StatefulSetReconciler) jobMasterEnabledLogging() bool {
+// EnableJobMasterLogging is job master enabled logging
+func (s *StatefulSetReconciler) EnableJobMasterLogging() bool {
 	return s.MergedCfg.Config.JobMaster.Logging != nil && s.MergedCfg.Config.JobMaster.Logging.Metastore != nil
 }
 
 // create job-master volume mounts
 func (s *StatefulSetReconciler) createJobMasterVolumeMounts() []corev1.VolumeMount {
-	if s.jobMasterEnabledLogging() {
+	if s.EnableJobMasterLogging() {
 		return []corev1.VolumeMount{
-			{
-				Name:      common.CreateLog4jVolumeName(),
-				MountPath: "/opt/alluxio-2.9.3/conf/log4j.properties",
-				SubPath:   common.Log4jCfgName,
-			},
+			common.CreateAlluxioLoggerVolumeMounts(),
 		}
 	}
 	return nil
@@ -271,12 +276,8 @@ func (s *StatefulSetReconciler) createMasterVolumeMount(needJournalVolume bool, 
 		}
 		volumeMounts = append(volumeMounts, vm)
 	}
-	if s.EnabledLogging() {
-		vm := corev1.VolumeMount{
-			Name:      common.CreateLog4jVolumeName(),
-			MountPath: "/opt/alluxio-2.9.3/conf/log4j.properties",
-			SubPath:   common.Log4jCfgName,
-		}
+	if s.EnabledMasterLogging() {
+		vm := common.CreateAlluxioLoggerVolumeMounts()
 		volumeMounts = append(volumeMounts, vm)
 	}
 	return volumeMounts

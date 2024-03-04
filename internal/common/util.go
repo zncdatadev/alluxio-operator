@@ -126,3 +126,11 @@ func GetJournal(cluster *stackv1alpha1.ClusterConfigSpec) *stackv1alpha1.Journal
 	}
 	return cluster.Journal
 }
+
+func CreateAlluxioLoggerVolumeMounts() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      Log4jVolumeName(),
+		MountPath: "/opt/alluxio-2.9.3/conf/log4j.properties",
+		SubPath:   Log4jCfgName,
+	}
+}
