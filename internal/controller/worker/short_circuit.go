@@ -18,7 +18,7 @@ func VolumeSourceFromShortCircuit(shortCircuit stackv1alpha1.ShortCircuitSpec, r
 	}
 }
 
-func MakeShortCircuitVolumes(instance *stackv1alpha1.Alluxio, roleGroupName string) []corev1.Volume {
+func MakeShortCircuitVolumes(instance *stackv1alpha1.AlluxioCluster, roleGroupName string) []corev1.Volume {
 	shortCircuit := instance.Spec.ClusterConfig.GetShortCircuit()
 	var volumes []corev1.Volume
 	volume := corev1.Volume{

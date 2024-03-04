@@ -17,7 +17,7 @@ resources:
   controller: true
   domain: zncdata.net
   group: stack
-  kind: Alluxio
+  kind: AlluxioCluster
   path: github.com/zncdata-labs/alluxio-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

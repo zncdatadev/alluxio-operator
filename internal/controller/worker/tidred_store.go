@@ -1,9 +1,10 @@
 package worker
 
 import (
+	"strings"
+
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 func VolumeSourceFromTieredStore(tieredStore stackv1alpha1.TieredStore, mediumType string, index int) corev1.Volume {
@@ -27,7 +28,7 @@ func VolumeSourceFromTieredStore(tieredStore stackv1alpha1.TieredStore, mediumTy
 	}
 }
 
-func MakeTieredStoreVolumes(instance *stackv1alpha1.Alluxio) []corev1.Volume {
+func MakeTieredStoreVolumes(instance *stackv1alpha1.AlluxioCluster) []corev1.Volume {
 	var volumes []corev1.Volume
 
 	for _, tieredStore := range instance.Spec.ClusterConfig.TieredStore {
@@ -41,7 +42,7 @@ func MakeTieredStoreVolumes(instance *stackv1alpha1.Alluxio) []corev1.Volume {
 	return volumes
 }
 
-func MakeTieredStoreVolumeMounts(instance *stackv1alpha1.Alluxio) []corev1.VolumeMount {
+func MakeTieredStoreVolumeMounts(instance *stackv1alpha1.AlluxioCluster) []corev1.VolumeMount {
 	var mounts []corev1.VolumeMount
 	for _, tieredStore := range instance.Spec.ClusterConfig.TieredStore {
 		mount := corev1.VolumeMount{

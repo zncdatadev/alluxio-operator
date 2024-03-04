@@ -2,10 +2,11 @@ package common
 
 import (
 	"context"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,7 +34,7 @@ type RoleGroupRecociler interface {
 
 type BaseRoleReconciler[R any] struct {
 	Scheme   *runtime.Scheme
-	Instance *stackv1alpha1.Alluxio
+	Instance *stackv1alpha1.AlluxioCluster
 	Client   client.Client
 	Log      logr.Logger
 	Labels   map[string]string

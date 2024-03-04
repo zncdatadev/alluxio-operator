@@ -2,30 +2,31 @@ package master
 
 import (
 	"fmt"
+	"strings"
+
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 type ConfigMapReconciler struct {
-	common.ConfigurationStyleReconciler[*stackv1alpha1.Alluxio, *stackv1alpha1.MasterRoleGroupSpec]
+	common.ConfigurationStyleReconciler[*stackv1alpha1.AlluxioCluster, *stackv1alpha1.MasterRoleGroupSpec]
 }
 
 // NewConfigMap new a ConfigMapReconcile
 func NewConfigMap(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	mergedLabels map[string]string,
 	mergedCfg *stackv1alpha1.MasterRoleGroupSpec,
 ) *ConfigMapReconciler {
 	return &ConfigMapReconciler{
-		ConfigurationStyleReconciler: *common.NewConfigurationStyleReconciler[*stackv1alpha1.Alluxio,
+		ConfigurationStyleReconciler: *common.NewConfigurationStyleReconciler[*stackv1alpha1.AlluxioCluster,
 			*stackv1alpha1.MasterRoleGroupSpec](
 			scheme,
 			instance,
@@ -118,7 +119,7 @@ func (s *ConfigMapReconciler) isHaEmbedded(journal *stackv1alpha1.JournalSpec, m
 
 // create ALLUXIO_JAVA_OPTS
 func (s *ConfigMapReconciler) createAlluxioJavaOpts(
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	groupName string,
 	MasterCount int32,
 	isSingleMaster bool,
@@ -202,7 +203,7 @@ func (s *ConfigMapReconciler) createJobMasterJavaOpts(
 func (s *ConfigMapReconciler) createWorkerJavaOpts(
 	workerRoleGroup *stackv1alpha1.WorkerRoleGroupSpec,
 	shortCircuit *stackv1alpha1.ShortCircuitSpec,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 ) string {
 	workerJavaOpts := make([]string, 0)
 	workerJavaOpts = append(workerJavaOpts, "-Dalluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}")

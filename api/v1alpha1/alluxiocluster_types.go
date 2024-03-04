@@ -42,26 +42,26 @@ var (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Alluxio is the Schema for the alluxios API
-type Alluxio struct {
+// AlluxioClusterCluster is the Schema for the alluxioclusters API
+type AlluxioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   AlluxioSpec   `json:"spec,omitempty"`
-	Status status.Status `json:"status,omitempty"`
+	Spec   AlluxioClusterSpec `json:"spec,omitempty"`
+	Status status.Status      `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// AlluxioList contains a list of Alluxio
-type AlluxioList struct {
+// AlluxioClusterList contains a list of AlluxioCluster
+type AlluxioClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Alluxio `json:"items"`
+	Items           []AlluxioCluster `json:"items"`
 }
 
-// AlluxioSpec defines the desired state of Alluxio
-type AlluxioSpec struct {
+// AlluxioClusterSpec defines the desired state of AlluxioCluster
+type AlluxioClusterSpec struct {
 	// +kubebuilder:validation:Required
 	ClusterConfig *ClusterConfigSpec `json:"clusterConfig,omitempty"`
 
@@ -121,8 +121,8 @@ type MasterPortsSpec struct {
 	Web int32 `json:"web,omitempty"`
 }
 
-// AlluxioStatus defines the observed state of Alluxio
-type AlluxioStatus struct {
+// AlluxioClusterStatus defines the observed state of AlluxioCluster
+type AlluxioClusterStatus struct {
 	// +kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"condition,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -134,7 +134,7 @@ type StatusURL struct {
 	URL  string `json:"url"`
 }
 
-func (r *Alluxio) GetNameWithSuffix(suffix string) string {
+func (r *AlluxioCluster) GetNameWithSuffix(suffix string) string {
 	// return sparkHistory.GetName() + rand.String(5) + suffix
 	return r.GetName() + "-" + suffix
 }
@@ -353,16 +353,16 @@ func (clusterConfig *ClusterConfigSpec) GetJournal() JournalSpec {
 // SetStatusCondition updates the status condition using the provided arguments.
 // If the condition already exists, it updates the condition; otherwise, it appends the condition.
 // If the condition status has changed, it updates the condition's LastTransitionTime.
-func (r *Alluxio) SetStatusCondition(condition metav1.Condition) {
+func (r *AlluxioCluster) SetStatusCondition(condition metav1.Condition) {
 	r.Status.SetStatusCondition(condition)
 }
 
 // InitStatusConditions initializes the status conditions to the provided conditions.
-func (r *Alluxio) InitStatusConditions() {
+func (r *AlluxioCluster) InitStatusConditions() {
 	r.Status.InitStatus(r)
 	r.Status.InitStatusConditions()
 }
 
 func init() {
-	SchemeBuilder.Register(&Alluxio{}, &AlluxioList{})
+	SchemeBuilder.Register(&AlluxioCluster{}, &AlluxioClusterList{})
 }

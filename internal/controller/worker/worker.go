@@ -1,18 +1,18 @@
 package worker
 
 import (
+	"context"
+
+	"github.com/go-logr/logr"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
 	"github.com/zncdata-labs/alluxio-operator/internal/util"
 	ctrl "sigs.k8s.io/controller-runtime"
-)
 
-import (
-	"context"
-	"github.com/go-logr/logr"
+	"strings"
+
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // roleWorker reconciler
@@ -24,7 +24,7 @@ type RoleWorker struct {
 // NewRoleWorker new roleWorker
 func NewRoleWorker(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	log logr.Logger) *RoleWorker {
 	r := &RoleWorker{
@@ -83,7 +83,7 @@ func (r *RoleWorker) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 // RoleWorkerGroup worker role group reconcile
 type RoleWorkerGroup struct {
 	Scheme     *runtime.Scheme
-	Instance   *stackv1alpha1.Alluxio
+	Instance   *stackv1alpha1.AlluxioCluster
 	Client     client.Client
 	GroupName  string
 	RoleLabels map[string]string
@@ -92,7 +92,7 @@ type RoleWorkerGroup struct {
 
 func NewRoleWorkerGroup(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	roleLables map[string]string,

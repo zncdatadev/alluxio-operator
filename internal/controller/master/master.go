@@ -2,6 +2,8 @@ package master
 
 import (
 	"context"
+	"strings"
+
 	"github.com/go-logr/logr"
 	stackv1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
 	"github.com/zncdata-labs/alluxio-operator/internal/common"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // roleMaster reconciler
@@ -21,7 +22,7 @@ type RoleMaster struct {
 // NewRoleMaster new roleMaster
 func NewRoleMaster(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	log logr.Logger) *RoleMaster {
 	r := &RoleMaster{
@@ -74,7 +75,7 @@ func (r *RoleMaster) ReconcileRole(ctx context.Context) (ctrl.Result, error) {
 // RoleMasterGroup master role group reconcile
 type RoleMasterGroup struct {
 	Scheme     *runtime.Scheme
-	Instance   *stackv1alpha1.Alluxio
+	Instance   *stackv1alpha1.AlluxioCluster
 	Client     client.Client
 	GroupName  string
 	RoleLabels map[string]string
@@ -83,7 +84,7 @@ type RoleMasterGroup struct {
 
 func NewRoleMasterGroup(
 	scheme *runtime.Scheme,
-	instance *stackv1alpha1.Alluxio,
+	instance *stackv1alpha1.AlluxioCluster,
 	client client.Client,
 	groupName string,
 	roleLabels map[string]string,

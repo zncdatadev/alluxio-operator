@@ -10,7 +10,7 @@ import (
 )
 
 type PDBReconciler struct {
-	BaseResourceReconciler[*stackv1alpha1.Alluxio, any]
+	BaseResourceReconciler[*stackv1alpha1.AlluxioCluster, any]
 	name   string
 	labels map[string]string
 	pdb    *stackv1alpha1.PodDisruptionBudgetSpec
@@ -19,13 +19,13 @@ type PDBReconciler struct {
 func NewReconcilePDB(
 	client client.Client,
 	schema *runtime.Scheme,
-	cr *stackv1alpha1.Alluxio,
+	cr *stackv1alpha1.AlluxioCluster,
 	labels map[string]string,
 	name string,
 	pdb *stackv1alpha1.PodDisruptionBudgetSpec,
 ) *PDBReconciler {
 	return &PDBReconciler{
-		BaseResourceReconciler: *NewBaseResourceReconciler[*stackv1alpha1.Alluxio, any](
+		BaseResourceReconciler: *NewBaseResourceReconciler[*stackv1alpha1.AlluxioCluster, any](
 			schema,
 			cr,
 			client,

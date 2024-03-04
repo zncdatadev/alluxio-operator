@@ -1,13 +1,13 @@
 apiVersion: stack.zncdata.net/v1alpha1
-kind: Alluxio
+kind: AlluxioCluster
 metadata:
   labels:
-    app.kubernetes.io/name: alluxio
-    app.kubernetes.io/instance: alluxio-sample
+    app.kubernetes.io/name: alluxiocluster
+    app.kubernetes.io/instance: alluxiocluster-sample
     app.kubernetes.io/part-of: alluxio-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: alluxio-operator
-  name: alluxio-sample
+  name: alluxiocluster-sample
 spec:
   image:
     repository: alluxio/alluxio
@@ -15,24 +15,24 @@ spec:
     pullPolicy: IfNotPresent
   clusterConfig:
     tieredStore:
-      - alias: MEM
-        high: 0.95
-        level: 0
-        low: 0.7
-        mediumType: MEM
-        path: /dev/shm
-        quota: 500Mi
-        type: emptyDir
+    - alias: MEM
+      high: 0.95
+      level: 0
+      low: 0.7
+      mediumType: MEM
+      path: /dev/shm
+      quota: 500Mi
+      type: emptyDir
   master:
     config:
       logging:
-       metastore:
-         loggers:
-          "MASTER_LOGGER":
-            level: "ERROR"
+        metastore:
+          loggers:
+            "MASTER_LOGGER":
+              level: "ERROR"
       args:
-        - master-only
-        - --no-format
+      - master-only
+      - --no-format
       resources:
         memory:
           limit: 1Gi
@@ -40,7 +40,7 @@ spec:
           max: 100m
       jobMaster:
         args:
-          - job-master
+        - job-master
     roleGroups:
       default:
         replicas: 1
@@ -50,14 +50,14 @@ spec:
   worker:
     config:
       args:
-        - worker-only
-        - --no-format
+      - worker-only
+      - --no-format
       resources:
         memory:
           limit: 1Gi
       jobWorker:
         args:
-          - job-worker
+        - job-worker
     roleGroups:
       default:
         replicas: 1
