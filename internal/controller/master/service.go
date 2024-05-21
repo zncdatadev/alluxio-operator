@@ -1,8 +1,8 @@
 package master
 
 import (
-	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
-	"github.com/zncdata-labs/alluxio-operator/internal/common"
+	alluxiov1alpha1 "github.com/zncdatadev/alluxio-operator/api/v1alpha1"
+	"github.com/zncdatadev/alluxio-operator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
