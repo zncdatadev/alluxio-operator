@@ -1,5 +1,5 @@
 /*
-Copyright 2023 zncdata-labs.
+Copyright 2023 zncdatadev.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
-	"github.com/zncdata-labs/operator-go/pkg/status"
-	utils "github.com/zncdata-labs/operator-go/pkg/util"
+	alluxiov1alpha1 "github.com/zncdatadev/alluxio-operator/api/v1alpha1"
+	"github.com/zncdatadev/operator-go/pkg/status"
+	utils "github.com/zncdatadev/operator-go/pkg/util"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

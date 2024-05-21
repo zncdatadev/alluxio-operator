@@ -1,8 +1,8 @@
 package master
 
 import (
-	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
-	"github.com/zncdata-labs/alluxio-operator/internal/common"
+	alluxiov1alpha1 "github.com/zncdatadev/alluxio-operator/api/v1alpha1"
+	"github.com/zncdatadev/alluxio-operator/internal/common"
 )
 
 func createMasterSvcName(instanceName string, roleName string, groupName string, extraSuffix string) string {

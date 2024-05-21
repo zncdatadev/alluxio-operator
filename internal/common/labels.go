@@ -1,7 +1,7 @@
 package common
 
 import (
-	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
+	alluxiov1alpha1 "github.com/zncdatadev/alluxio-operator/api/v1alpha1"
 	"strings"
 )
 

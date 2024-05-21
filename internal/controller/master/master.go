@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	alluxiov1alpha1 "github.com/zncdata-labs/alluxio-operator/api/v1alpha1"
-	"github.com/zncdata-labs/alluxio-operator/internal/common"
-	"github.com/zncdata-labs/alluxio-operator/internal/util"
+	alluxiov1alpha1 "github.com/zncdatadev/alluxio-operator/api/v1alpha1"
+	"github.com/zncdatadev/alluxio-operator/internal/common"
+	"github.com/zncdatadev/alluxio-operator/internal/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"github.com/zncdata-labs/alluxio-operator/internal/common"
+	"github.com/zncdatadev/alluxio-operator/internal/common"
 )
 
 func createDeploymentName(instanceName string, roleName string, groupName string) string {
