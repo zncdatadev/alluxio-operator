@@ -1,6 +1,7 @@
 module github.com/zncdatadev/alluxio-operator
 
 go 1.21
+toolchain go1.22.4
 
 require (
 	github.com/cisco-open/k8s-objectmatcher v1.9.0
@@ -9,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.33.1
 	github.com/zncdatadev/operator-go v0.5.0
 	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
+	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.29.3
 	sigs.k8s.io/controller-runtime v0.17.3
 )
